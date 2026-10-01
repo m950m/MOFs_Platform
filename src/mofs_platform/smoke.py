@@ -1,8 +1,10 @@
-"""Headless startup smoke check (issue #3).
+"""Headless startup smoke check (issues #3 and #4).
 
 Runs the Streamlit entry point in the AppTest runtime and asserts the
-observable startup result (the empty/ready state marker). A broken entry
-point or failed startup produces a failing result and exit code 1 —
+observable startup result: the app starts without an exception and the home
+page renders its honest status line — the empty/ready marker when nothing is
+saved, or the question-recorded marker once a question exists. A broken
+entry point or failed startup produces a failing result and exit code 1 —
 never an unconditional pass.
 
 Usage: python -m mofs_platform.smoke
@@ -11,7 +13,10 @@ Usage: python -m mofs_platform.smoke
 import sys
 from pathlib import Path
 
-READY_MARKER = "Empty / ready"
+READY_MARKERS = (
+    "Empty / ready",
+    "Ready — research question recorded",
+)
 
 APP_PATH = Path(__file__).resolve().parent / "app.py"
 
@@ -34,9 +39,10 @@ def run_smoke(app_path: Path) -> tuple[bool, str]:
     at.run()
     if at.exception:
         return False, f"entry point raised an exception: {at.exception[0].value!r}"
-    if READY_MARKER not in _rendered_text(at):
-        return False, f"ready-state marker {READY_MARKER!r} missing from rendered output"
-    return True, "entry point started and rendered the empty/ready state"
+    text = _rendered_text(at)
+    if not any(marker in text for marker in READY_MARKERS):
+        return False, f"none of the ready-state markers {READY_MARKERS!r} found in output"
+    return True, "entry point started and rendered its status line"
 
 
 def main() -> int:

@@ -1,30 +1,39 @@
-"""Streamlit entry point — issue #3 empty/ready state.
+"""Streamlit entry point (issue #4: research-question entry added).
 
-Renders an honest empty state: names what is absent, invents nothing
-(see _docs/design-system.md, rule 7). Startup proves the entry point works;
-it does not validate provider access or chemistry.
+Startup proves the entry point works; it does not validate provider access
+or chemistry. Data is stored in a local SQLite database (data/platform.db by
+default; override with the MOFS_DB_PATH environment variable).
 """
+
+import os
+from pathlib import Path
 
 import streamlit as st
 
+from mofs_platform.db.connection import connect
+from mofs_platform.ui.pages.home import render_home
+from mofs_platform.ui.pages.question_page import PAGE_TITLE, render_question_page
+
 st.set_page_config(page_title="MOF Platform", page_icon=":microscope:")
 
+
+def db_path() -> Path:
+    env = os.environ.get("MOFS_DB_PATH")
+    if env:
+        path = Path(env)
+    else:
+        root = Path(__file__).resolve().parents[2]
+        path = root / "data" / "platform.db"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+conn = connect(db_path())
+
 st.title("MOF Electrochemistry Research Tool")
+section = st.sidebar.radio("Section", ["Home", PAGE_TITLE], key="nav")
 
-st.success("Empty / ready — no data recorded yet.")
-
-st.markdown(
-    """
-- No research questions recorded yet.
-- No laboratory capability profile recorded yet.
-- No sources recorded yet.
-- No candidates, samples, or evidence assertions recorded yet.
-- HER search outcome: `not yet searched`
-- OER search outcome: `not yet searched`
-"""
-)
-
-st.caption(
-    "This startup validates the entry point only. "
-    "It does not validate provider access, chemistry, or any scientific claim."
-)
+if section == "Home":
+    render_home(conn)
+else:
+    render_question_page(conn)
