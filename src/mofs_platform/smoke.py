@@ -34,7 +34,7 @@ def run_smoke(app_path: Path) -> tuple[bool, str]:
     at.run()
     if at.exception:
         return False, f"entry point raised an exception: {at.exception[0].value!r}"
-    if not READY_MARKER in _rendered_text(at):
+    if READY_MARKER not in _rendered_text(at):
         return False, f"ready-state marker {READY_MARKER!r} missing from rendered output"
     return True, "entry point started and rendered the empty/ready state"
 
