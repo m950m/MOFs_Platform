@@ -104,8 +104,8 @@ def render_lab_profile_page(conn) -> None:
         status = st.session_state.get("cap_status", "unknown")
         try:
             if editing:
-                update_capability(conn, editing["id"], name, desc, status)
-                st.session_state["flash"] = f"Correction saved for {name.strip()}."
+                updated = update_capability(conn, editing["id"], name, desc, status)
+                st.session_state["flash"] = f"Correction saved for {updated.name}."
             else:
                 added = add_capability(conn, name, desc, status)
                 st.session_state["flash"] = f"Capability added: {added.name}."
@@ -120,7 +120,7 @@ def render_lab_profile_page(conn) -> None:
         st.session_state["reset_request"] = True
         st.rerun()
 
-    if entries:
+    if entries and not editing:  # hidden while correcting: one edit target at a time
         st.subheader("Correct an entry")
         for cap in entries:
             if st.button(f"Correct: {cap.name}", key=f"correct_{cap.id}"):

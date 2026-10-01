@@ -85,6 +85,18 @@ def test_reclassification_unknown_to_current_is_explicit_only(db_path):
     assert entries[0].status == "current"  # only because the researcher said so
 
 
+def test_repeated_corrections_never_duplicate(db_path):
+    conn = connect(db_path)
+    cap = add_capability(conn, "Repeatedly corrected entry (synthetic)", None, "unknown")
+    for i, status in enumerate(("current", "future", "current")):
+        update_capability(conn, cap.id, cap.name, f"note {i}", status)
+    entries = list_capabilities(conn)
+    assert len(entries) == 1  # still exactly one entry after repeated saves
+    assert entries[0].status == "current"
+    assert entries[0].description == "note 2"
+    assert count_events(conn) == 4  # 1 added + 3 corrected, all auditable
+
+
 def test_restart_persistence(db_path):
     conn = connect(db_path)
     add_capability(conn, "Persistent entry (synthetic)", "survives restart", "unavailable")

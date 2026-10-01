@@ -125,6 +125,36 @@ def test_reopen_in_fresh_session_shows_saved_profile(run_app, db_path):
     assert "Ready — data recorded" in all_text(at2)
 
 
+def test_ui_persistence_failure_shows_error_not_success(run_app, db_path, monkeypatch):
+    from mofs_platform.domain.labprofile import LabProfilePersistenceError
+
+    def failing_update(conn, capability_id, name, description, status):
+        raise LabProfilePersistenceError(
+            "Saving failed; the previously saved profile is unchanged. (injected)"
+        )
+
+    at = run_app()
+    _open_lab_page(at)
+    by_key(at.text_input, "cap_name").set_value("Synthetic entry for failure test")
+    by_key(at.radio, "cap_status").set_value("current")
+    by_key(at.button, "save_capability").click()
+    at.run()
+    _button(at, "Correct:").click()
+    at.run()
+    by_key(at.radio, "cap_status").set_value("future")
+    monkeypatch.setattr(
+        "mofs_platform.ui.pages.lab_profile.update_capability", failing_update
+    )
+    by_key(at.button, "save_capability").click()
+    at.run()
+    assert at.error, "failure must be surfaced"
+    assert "failed" in at.error[0].value.lower()
+    assert not any("Correction saved" in s.value for s in at.success)
+    entries = list_capabilities(connect(db_path))
+    assert len(entries) == 1
+    assert entries[0].status == "current"  # previous value intact
+
+
 def test_unsaved_add_is_not_persisted(run_app, db_path):
     at = run_app()
     _open_lab_page(at)
