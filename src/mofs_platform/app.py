@@ -14,6 +14,7 @@ from mofs_platform.db.connection import connect
 from mofs_platform.ui.pages.home import render_home
 from mofs_platform.ui.pages.lab_profile import LAB_PAGE_TITLE, render_lab_profile_page
 from mofs_platform.ui.pages.question_page import PAGE_TITLE, render_question_page
+from mofs_platform.ui.pages.sources import SOURCES_PAGE_TITLE, render_sources_page
 
 st.set_page_config(page_title="MOF Platform", page_icon=":microscope:")
 
@@ -33,12 +34,14 @@ conn = connect(db_path())
 
 st.title("MOF Electrochemistry Research Tool")
 section = st.sidebar.radio(
-    "Section", ["Home", PAGE_TITLE, LAB_PAGE_TITLE], key="nav"
+    "Section", ["Home", PAGE_TITLE, LAB_PAGE_TITLE, SOURCES_PAGE_TITLE], key="nav"
 )
 
 if section == "Home":
     render_home(conn)
 elif section == PAGE_TITLE:
     render_question_page(conn)
-else:
+elif section == LAB_PAGE_TITLE:
     render_lab_profile_page(conn)
+else:
+    render_sources_page(conn)
