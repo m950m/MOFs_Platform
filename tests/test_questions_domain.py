@@ -29,6 +29,7 @@ def test_migrations_are_idempotent(db_path):
         "0003_sources.sql",
         "0004_source_indexed.sql",
         "0005_assertions.sql",
+        "0006_identity.sql",
     ]
     second.close()
 
