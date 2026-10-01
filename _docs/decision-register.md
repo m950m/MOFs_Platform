@@ -11,7 +11,7 @@ but never fill an entry, treat silence as approval, or edit a recorded decision.
 
 | ID | Decision | Proposal (summary — full text in the proposal §1) | Owner entry | Date |
 |---|---|---|---|---|
-| D1 | First exact research question, reaction(s), conditions, acceptance case | **Owner-authored text.** Template: proposal §2.2. Not required for issue #3; required before #4. | | |
+| D1 | First exact research question, reaction(s), conditions, acceptance case | **Owner entry recorded 2026-10-01:** the owner will enter the first question himself through the app once issue #4's entry surface exists; until then no question exists and **every scientific field (reaction, material classes, conditions, hard requirements, preferences, meaning of improvement) starts intentionally unknown** — the implementer supplies none of their values. Tool acceptance case for the first slice: **proposal §2.1 approved as-is.** | **Approved** (owner selection via agent decision session) | 2026-10-01 |
 | D2 | First source contract (route, permitted fields, rights, failure behavior) | Crossref REST polite pool (`mailto`) for DOI metadata enrichment; manual entry is the primary evidence path; no full-text retrieval. | **Approved — Crossref + manual entry** (owner selection via agent decision session; full contract per proposal §5) | 2026-10-01 |
 | D3 | Local stack and interface | L2: Python 3.11+ / Streamlit local app / SQLite (stdlib `sqlite3`); deps `streamlit`, `httpx`; dev `pytest`, `ruff`. | **Approved — L2: Streamlit + SQLite** (owner selection via agent decision session) | 2026-10-01 |
 | D4 | Threshold for an assertion to become `reviewed` | Named human records a ReviewEvent confirming inspection of the exact cited evidence location (who, when, verdict, reason). | | |
