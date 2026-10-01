@@ -86,6 +86,10 @@ def render_sources_page(conn) -> None:
                 lines.append(f"- License: {ref.license_url}")
             if ref.rights_note:
                 lines.append(f"- Rights note: {ref.rights_note}")
+            if ref.supplied_input:
+                lines.append(f"- Supplied input (exact): {ref.supplied_input}")
+            if ref.indexed_at:
+                lines.append(f"- Crossref record version (indexed): {ref.indexed_at}")
             st.markdown("\n".join(lines))
             if ref.doi:
                 mailto = st.session_state.get("crossref_mailto") or None
@@ -120,7 +124,7 @@ def render_sources_page(conn) -> None:
         )
         col_a, col_b = st.columns(2)
         with col_a:
-            st.text_input("Contributor", key="ref_contributor", value="Mohammed (owner)")
+            st.text_input("Contributor", key="ref_contributor")
             st.selectbox(
                 "What was actually inspected?",
                 list(INSPECTED_LEVELS),

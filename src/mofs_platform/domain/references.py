@@ -47,6 +47,7 @@ class Reference:
     inspected_level: str
     contributor: str | None
     rights_note: str | None
+    indexed_at: str | None = None
 
 
 def _row_to_ref(row: sqlite3.Row) -> Reference:
@@ -65,6 +66,7 @@ def _row_to_ref(row: sqlite3.Row) -> Reference:
         inspected_level=row["inspected_level"],
         contributor=row["contributor"],
         rights_note=row["rights_note"],
+        indexed_at=row["indexed_at"],
     )
 
 
@@ -72,7 +74,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     keys = (
         "id", "question_id", "doi", "url", "title", "container", "issued_year",
         "license_url", "entry_method", "supplied_input", "retrieval_date",
-        "inspected_level", "contributor", "rights_note",
+        "inspected_level", "contributor", "rights_note", "indexed_at",
     )
     return {key: row[key] for key in keys}
 
@@ -131,10 +133,11 @@ def add_manual_reference(
                 conn.execute(
                     "UPDATE source SET url = COALESCE(?, url), title = COALESCE(?, title), "
                     "supplied_input = COALESCE(?, supplied_input), contributor = COALESCE(?, contributor), "
-                    "inspected_level = ?, rights_note = COALESCE(?, rights_note), "
+                    "inspected_level = CASE WHEN ? = 'unknown' THEN inspected_level "
+                    "ELSE ? END, rights_note = COALESCE(?, rights_note), "
                     "retrieval_date = CURRENT_TIMESTAMP WHERE id = ?",
                     (clean_url, clean_title, clean_input, clean_contributor,
-                     inspected_level, clean_rights, existing["id"]),
+                     inspected_level, inspected_level, clean_rights, existing["id"]),
                 )
                 ref_id = int(existing["id"])
                 action = "captured"
@@ -187,9 +190,10 @@ def enrich_with_crossref(
             conn.execute(
                 "UPDATE source SET title = COALESCE(title, ?), container = COALESCE(container, ?), "
                 "issued_year = COALESCE(issued_year, ?), license_url = COALESCE(license_url, ?), "
-                "url = COALESCE(url, ?), retrieval_date = CURRENT_TIMESTAMP WHERE id = ?",
+                "url = COALESCE(url, ?), indexed_at = ?, retrieval_date = CURRENT_TIMESTAMP "
+                "WHERE id = ?",
                 (result.title, result.container, result.issued_year,
-                 result.license_url, result.url, reference_id),
+                 result.license_url, result.url, result.indexed, reference_id),
             )
             saved = conn.execute(
                 "SELECT * FROM source WHERE id = ?", (reference_id,)

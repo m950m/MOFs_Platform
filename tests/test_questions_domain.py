@@ -23,7 +23,12 @@ def test_migrations_are_idempotent(db_path):
         row["filename"]
         for row in second.execute("SELECT filename FROM schema_migrations")
     ]
-    assert names == ["0001_question.sql", "0002_lab_profile.sql", "0003_sources.sql"]
+    assert names == [
+        "0001_question.sql",
+        "0002_lab_profile.sql",
+        "0003_sources.sql",
+        "0004_source_indexed.sql",
+    ]
     second.close()
 
 
