@@ -95,6 +95,22 @@ def test_conflicting_pair_keeps_both_claims_flagged(conn_with_source):
     assert count_events(conn) == 3  # 2 recorded + 1 flagged_conflict
 
 
+def test_relink_guard_rejects_conflict_with_already_paired_assertion(conn_with_source):
+    conn, source_id = conn_with_source
+    a = record_assertion(conn, source_id=source_id, claim_type="property", claim_text="A (synthetic)")
+    b = record_assertion(
+        conn, source_id=source_id, claim_type="property", claim_text="B (synthetic)",
+        conflicts_with=a.id,
+    )
+    with pytest.raises(EvidenceValidationError):
+        record_assertion(
+            conn, source_id=source_id, claim_type="property", claim_text="C (synthetic)",
+            conflicts_with=a.id,  # a is already paired with b — no silent severing
+        )
+    a_row, b_row = get_assertion(conn, a.id), get_assertion(conn, b.id)
+    assert a_row.conflicts_with == b.id and b_row.conflicts_with == a.id  # pair intact
+
+
 def test_conflict_with_missing_assertion_rejected(conn_with_source):
     conn, source_id = conn_with_source
     with pytest.raises(EvidenceValidationError):

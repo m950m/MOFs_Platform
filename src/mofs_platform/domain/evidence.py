@@ -30,8 +30,6 @@ EPISTEMIC_LABELS = {
     "unknown": "`unknown` — epistemic type not yet determined",
 }
 
-REVIEW_STATES = ("needs_verification", "in_review", "reviewed", "conflicted")
-
 REVIEW_LABELS = {
     "needs_verification": "`needs verification`",
     "in_review": "`in review`",
@@ -130,11 +128,18 @@ def record_assertion(
         pair_id = None
         if conflicts_with is not None:
             pair = conn.execute(
-                "SELECT id FROM assertion WHERE id = ?", (conflicts_with,)
+                "SELECT id, conflicts_with FROM assertion WHERE id = ?", (conflicts_with,)
             ).fetchone()
             if pair is None:
                 raise EvidenceValidationError(
                     f"Conflicting assertion #{conflicts_with} does not exist."
+                )
+            if pair["conflicts_with"] is not None:
+                # One partner per assertion until #11 adds richer conflict
+                # handling — silently re-linking would hide the old pair.
+                raise EvidenceValidationError(
+                    f"Assertion #{conflicts_with} is already in a recorded "
+                    "conflict — resolve or review it first (issue #11)."
                 )
             pair_id = int(pair["id"])
         with conn:
@@ -165,13 +170,14 @@ def record_assertion(
                     "UPDATE assertion SET conflicts_with = ? WHERE id = ?",
                     (new_id, pair_id),
                 )
+                pre_conflict = _row_to_dict(saved)
                 saved = conn.execute(
                     "SELECT * FROM assertion WHERE id = ?", (new_id,)
                 ).fetchone()
                 conn.execute(
                     "INSERT INTO assertion_event (action, assertion_id, previous_json, "
                     "updated_json) VALUES ('flagged_conflict', ?, ?, ?)",
-                    (new_id, json.dumps(_row_to_dict(saved)), json.dumps(_row_to_dict(saved))),
+                    (new_id, json.dumps(pre_conflict), json.dumps(_row_to_dict(saved))),
                 )
     except EvidenceValidationError:
         raise

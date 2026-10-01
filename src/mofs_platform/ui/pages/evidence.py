@@ -60,7 +60,11 @@ def render_evidence_page(conn) -> None:
 
     assertions = list_assertions(conn)
     ref_label = {
-        ref.id: (ref.title or ref.doi or f"Reference #{ref.id}") for ref in references
+        ref.id: (
+            f"#{ref.id} — {ref.title or ref.doi or 'untitled'}"
+            f" (captured {ref.retrieval_date})"
+        )
+        for ref in references
     }
 
     if assertions:
