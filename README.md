@@ -19,6 +19,10 @@ Issues #5–#13 are next, in order. Owner decisions are recorded in
 3. [`_docs/proposals/`](_docs/proposals/) — proposed implementation spec, diagrams,
    and agent execution plan (2026-10-01), pending owner approval in
    [`_docs/decision-register.md`](_docs/decision-register.md).
+4. Related project: [`scientific-data-lifecycle-atlas`](https://github.com/m950m/scientific-data-lifecycle-atlas) —
+   a separate methodology reference (data-lifecycle stages, FAIR, documented
+   failure modes). Kept independent by design; it may import real runtime
+   evidence from this repository after the core engine (issues #3–#13) completes.
 
 ## Authority
 

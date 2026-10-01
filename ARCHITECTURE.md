@@ -47,6 +47,31 @@ ui/  ──▶  domain/  ──▶  db/ (SQLite + numbered migrations)
   identity invariants, provenance capture, or review-state rules — such changes
   require an ADR + owner approval.
 
+## Proportionality guard (binding — anti over-engineering)
+
+Owner mandate 2026-10-02: the project must not drift into over-engineering.
+These rules bind every task, PR, and QA review:
+
+1. **No criterion, no code.** Every module, function, and column must map to an
+   acceptance criterion of an active issue or a recorded owner decision. Code
+   "for later" is a QA defect.
+2. **Rule of two.** No abstraction, wrapper, or base class until a second
+   concrete use exists. Copy twice before you generalize once.
+3. **Boring stack.** stdlib + the approved dependencies only (streamlit, httpx,
+   pytest, ruff). Anything else needs a written problem statement and owner
+   approval — "a course teaches it" or "it is modern" are not reasons.
+4. **No new layers.** The four layers above are the whole architecture: no DI
+   containers, plugin systems, config frameworks, service buses, or
+   repository/unit-of-work patterns unless a demonstrated problem demands one.
+5. **Migrations only for data the current issue's criteria actually store.**
+   No speculative tables, columns, or JSON schemas.
+6. **QA proportionality check (standing):** every QA review must flag (a) code
+   with no criterion, (b) unused abstractions or dead options, (c) config for
+   features that do not exist yet.
+7. **Docs stay short.** A new guide document requires an owner decision;
+   prefer extending an existing one. Over-engineered process is the same
+   failure as over-engineered code (plan risk RSK-002).
+
 ## Extension points (where contributors plug in)
 
 | Want to add… | Implement… | Never touch |
