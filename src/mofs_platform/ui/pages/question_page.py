@@ -37,7 +37,7 @@ def _show_saved(question: Question, corrections: int) -> None:
         f"- Meaning of improvement: {question.meaning_of_improvement or '`unknown`'}"
     )
     st.caption(
-        f"{corrections} correction event(s) recorded. "
+        f"{corrections} save event(s) recorded (first save + corrections). "
         "Saving a question establishes no material identity, measured "
         "performance, laboratory feasibility, novelty, or scientific conclusion."
     )

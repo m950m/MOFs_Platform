@@ -129,6 +129,17 @@ def test_unknown_fields_stay_unknown_not_defaulted(db_path):
         assert getattr(saved, name) is None, f"{name} must stay unknown"
 
 
+def test_blank_save_after_previous_preserves_previous(db_path):
+    conn = connect(db_path)
+    save_question(conn, Question(wording="Already saved question"))
+    with pytest.raises(QuestionValidationError):
+        save_question(conn, Question(wording="   "))
+    saved = get_question(conn)
+    assert saved is not None
+    assert saved.wording == "Already saved question"  # prior value untouched
+    assert count_events(conn) == 1  # no extra event from the failed save
+
+
 def test_save_failure_reports_and_preserves_previous(db_path):
     conn = connect(db_path)
     save_question(conn, Question(wording="Original saved question"))

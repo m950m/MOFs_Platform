@@ -42,9 +42,15 @@ class Question:
 
 
 def _clean(question: Question) -> Question:
+    def normalize(value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
     return Question(
         wording=question.wording.strip(),
-        **{name: getattr(question, name) for name in FIELD_NAMES},
+        **{name: normalize(getattr(question, name)) for name in FIELD_NAMES},
     )
 
 

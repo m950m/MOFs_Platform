@@ -2,7 +2,7 @@
 
 from conftest import all_text
 from mofs_platform.db.connection import connect
-from mofs_platform.domain.questions import get_question
+from mofs_platform.domain.questions import count_events, get_question
 
 
 def _open_question_page(at):
@@ -66,6 +66,53 @@ def test_saved_display_distinguishes_hard_vs_preference_and_unknowns(run_app):
     assert "Hard requirements" in text
     assert "Preferences" in text
     assert "unknown" in text  # unset fields visibly unknown, not hidden
+
+
+def test_ui_correction_second_save_updates_in_place(run_app, db_path):
+    at = run_app()
+    _open_question_page(at)
+    at.text_area[0].set_value("First wording")
+    at.button[0].click()
+    at.run()
+    _open_question_page(at)
+    # The form is prefilled with the saved state; correct only the wording.
+    assert at.text_area[0].value == "First wording"
+    at.text_area[0].set_value("Corrected wording")
+    at.button[0].click()
+    at.run()
+    _open_question_page(at)
+    assert at.text_area[0].value == "Corrected wording"
+    conn = connect(db_path)
+    saved = get_question(conn)
+    assert saved is not None
+    assert saved.wording == "Corrected wording"
+    rows = conn.execute("SELECT COUNT(*) FROM question").fetchone()[0]
+    assert rows == 1  # still one saved question, not a duplicate
+    assert count_events(conn) == 2  # created + corrected
+
+
+def test_ui_persistence_failure_shows_error_not_success(run_app, db_path, monkeypatch):
+    from mofs_platform.domain.questions import QuestionPersistenceError
+
+    def failing_save(conn, question):
+        raise QuestionPersistenceError(
+            "Saving the question failed; the previously saved question is "
+            "unchanged. (injected)"
+        )
+
+    at = run_app()
+    _open_question_page(at)
+    at.text_area[0].set_value("This save must fail")
+    monkeypatch.setattr(
+        "mofs_platform.ui.pages.question_page.save_question", failing_save
+    )
+    at.button[0].click()
+    at.run()
+    assert at.error, "failure must be surfaced"
+    assert "failed" in at.error[0].value.lower()
+    assert not any("Question saved." in s.value for s in at.success)
+    conn = connect(db_path)
+    assert get_question(conn) is None  # nothing partially written
 
 
 def test_unsaved_edit_is_not_presented_as_persisted(run_app, db_path):

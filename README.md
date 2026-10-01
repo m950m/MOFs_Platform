@@ -5,8 +5,11 @@ discover materials with documented experimental preparation, keep each claim's
 source and location, preserve tested-sample identity, and let the researcher —
 not the tool — draw scientific conclusions.
 
-**Status:** specification complete; implementation not started. Tasks 001–002 done
-(documentation/analysis); issues #3–#13 blocked on owner decisions.
+**Status:** issues #1–#4 delivered — tested-sample identity contract (documentation),
+source/stack options analysis, a runnable local project with a startup smoke check
+(#3), and research-question entry/correction/persistence with local SQLite (#4).
+Issues #5–#13 are next, in order. Owner decisions are recorded in
+[`_docs/decision-register.md`](_docs/decision-register.md).
 
 ## Read first
 
@@ -23,13 +26,14 @@ Scientific and product decisions belong to the owner (Mohammed). Agents propose;
 they never select a source, stack, scientific question, or candidate on his behalf,
 and silence is never treated as approval. See [`AGENTS.md`](AGENTS.md).
 
-No product code, dependencies, or database schema exist yet; none may be added
-before the owner records the prerequisite decisions.
+New dependencies require the owner's approval first (see `AGENTS.md`).
 
-## Run locally (issue #3 state)
+## Run locally
 
 Prerequisites: Python ≥ 3.11 (verified on 3.14.4). No credentials, no network
-needed at runtime.
+needed at runtime. Data is stored in `data/platform.db` (override with the
+`MOFS_DB_PATH` environment variable); the schema is created by numbered
+migrations on first run.
 
 ```bash
 python3 -m venv .venv
