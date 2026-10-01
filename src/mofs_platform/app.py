@@ -1,4 +1,4 @@
-"""Streamlit entry point (issue #4: research-question entry added).
+"""Streamlit entry point (issues #3-#5).
 
 Startup proves the entry point works; it does not validate provider access
 or chemistry. Data is stored in a local SQLite database (data/platform.db by
@@ -12,6 +12,7 @@ import streamlit as st
 
 from mofs_platform.db.connection import connect
 from mofs_platform.ui.pages.home import render_home
+from mofs_platform.ui.pages.lab_profile import LAB_PAGE_TITLE, render_lab_profile_page
 from mofs_platform.ui.pages.question_page import PAGE_TITLE, render_question_page
 
 st.set_page_config(page_title="MOF Platform", page_icon=":microscope:")
@@ -31,9 +32,13 @@ def db_path() -> Path:
 conn = connect(db_path())
 
 st.title("MOF Electrochemistry Research Tool")
-section = st.sidebar.radio("Section", ["Home", PAGE_TITLE], key="nav")
+section = st.sidebar.radio(
+    "Section", ["Home", PAGE_TITLE, LAB_PAGE_TITLE], key="nav"
+)
 
 if section == "Home":
     render_home(conn)
-else:
+elif section == PAGE_TITLE:
     render_question_page(conn)
+else:
+    render_lab_profile_page(conn)

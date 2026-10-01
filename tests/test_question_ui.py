@@ -48,7 +48,7 @@ def test_save_then_reopen_in_fresh_session(run_app, db_path):
     # A completely fresh application session must show the saved work.
     at2 = run_app()
     text = all_text(at2)
-    assert "Ready — research question recorded" in text
+    assert "Ready — data recorded" in text
     assert "Which prepared MOF samples merit inspection for HER?" in text
     _open_question_page(at2)
     assert at2.text_area[0].value == "Which prepared MOF samples merit inspection for HER?"

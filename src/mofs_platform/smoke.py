@@ -15,7 +15,7 @@ from pathlib import Path
 
 READY_MARKERS = (
     "Empty / ready",
-    "Ready — research question recorded",
+    "Ready — data recorded",
 )
 
 APP_PATH = Path(__file__).resolve().parent / "app.py"
