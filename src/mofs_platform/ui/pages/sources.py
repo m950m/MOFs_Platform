@@ -36,6 +36,8 @@ _WIDGET_DEFAULTS = {
 
 def _apply_reset_request() -> None:
     """Widget keys may only be written before the widgets are instantiated."""
+    if "ref_contributor" not in st.session_state:  # first-visit attribution default
+        st.session_state["ref_contributor"] = "Mohammed (owner)"
     if st.session_state.pop("ref_reset_request", False):
         st.session_state.update(_WIDGET_DEFAULTS)
 

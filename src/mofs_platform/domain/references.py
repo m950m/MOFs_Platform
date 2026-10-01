@@ -131,6 +131,9 @@ def add_manual_reference(
         with conn:
             if existing is not None:
                 conn.execute(
+                    # Re-capture semantics: 'unknown' means "not stated" and keeps
+                    # the stored level — the default form value must never silently
+                    # downgrade a recorded inspection level (QA finding, #6).
                     "UPDATE source SET url = COALESCE(?, url), title = COALESCE(?, title), "
                     "supplied_input = COALESCE(?, supplied_input), contributor = COALESCE(?, contributor), "
                     "inspected_level = CASE WHEN ? = 'unknown' THEN inspected_level "
