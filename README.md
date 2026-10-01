@@ -25,3 +25,25 @@ and silence is never treated as approval. See [`AGENTS.md`](AGENTS.md).
 
 No product code, dependencies, or database schema exist yet; none may be added
 before the owner records the prerequisite decisions.
+
+## Run locally (issue #3 state)
+
+Prerequisites: Python ≥ 3.11 (verified on 3.14.4). No credentials, no network
+needed at runtime.
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"   # streamlit + pytest + ruff (pinned)
+
+# Start the app (local browser UI):
+.venv/bin/streamlit run src/mofs_platform/app.py
+
+# Startup smoke check (headless, prints PASS/FAIL, exit code reflects result):
+.venv/bin/python -m mofs_platform.smoke
+
+# Tests:
+.venv/bin/pytest
+```
+
+A successful startup proves the entry point renders the empty/ready state —
+nothing more. It does not validate provider access, chemistry, or data.
