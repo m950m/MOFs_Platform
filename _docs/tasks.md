@@ -20,10 +20,10 @@ Tasks 004–013 are sequential: each waits for the preceding task to be Done and
 |---|---|---|
 | 001 | [#1 — Define the tested-sample identity contract](https://github.com/m950m/MOFs_Platform/issues/1) | Done — closed as completed |
 | 002 | [#2 — Research first-source and stack options](https://github.com/m950m/MOFs_Platform/issues/2) | Done — closed as completed |
-| 003 | [#3 — Bootstrap an empty runnable project](https://github.com/m950m/MOFs_Platform/issues/3) | Blocked — open |
-| 004 | [#4 — Save and correct the first research question](https://github.com/m950m/MOFs_Platform/issues/4) | Blocked — open |
-| 005 | [#5 — Save the confirmed laboratory profile](https://github.com/m950m/MOFs_Platform/issues/5) | Blocked — open |
-| 006 | [#6 — Capture source references through the selected route](https://github.com/m950m/MOFs_Platform/issues/6) | Blocked — open |
+| 003 | [#3 — Bootstrap an empty runnable project](https://github.com/m950m/MOFs_Platform/issues/3) | Done — closed as completed |
+| 004 | [#4 — Save and correct the first research question](https://github.com/m950m/MOFs_Platform/issues/4) | Done — closed as completed |
+| 005 | [#5 — Save the confirmed laboratory profile](https://github.com/m950m/MOFs_Platform/issues/5) | Done — closed as completed |
+| 006 | [#6 — Capture source references through the selected route](https://github.com/m950m/MOFs_Platform/issues/6) | Done — closed as completed |
 | 007 | [#7 — Record attributed evidence assertions](https://github.com/m950m/MOFs_Platform/issues/7) | Blocked — open |
 | 008 | [#8 — Link tested samples and observations without false merges](https://github.com/m950m/MOFs_Platform/issues/8) | Blocked — open |
 | 009 | [#9 — Handle the selected source route's failures](https://github.com/m950m/MOFs_Platform/issues/9) | Blocked — open |
