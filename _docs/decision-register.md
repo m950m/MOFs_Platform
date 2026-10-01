@@ -39,3 +39,25 @@ Current / future / unknown laboratory capabilities: ...
 Evidence-review threshold and cross-source sample equivalence rule: ...
 Reason, supporting source, alternative, and implications for task 003: ...
 ```
+
+---
+
+## Owner architectural mandates (recorded 2026-10-02)
+
+Recorded verbatim in intent by the owner; binding for all future implementation
+(details and landing spots in `ARCHITECTURE.md` and issues #18, #19, and the
+comment on #8):
+
+1. **Stable architecture, open source:** the repository is an open-source
+   project (Apache-2.0 added 2026-10-02) with fixed layers and documented
+   extension points so contributors cannot destabilize provenance or identity.
+2. **Contributor data entry:** "whoever registers or works on a compound
+   enters precise data" — implemented as attributed evidence packages with
+   mandatory review ([#19](https://github.com/m950m/MOFs_Platform/issues/19));
+   a hosted multi-user server remains a separate future owner decision.
+3. **Compound distinctness:** the same composition with a different atomic
+   arrangement (structure/topology/CIF) or different morphology is a **different
+   compound** — enforced in #8 and [#18](https://github.com/m950m/MOFs_Platform/issues/18).
+4. **Unique property aggregation:** every compound aggregates its own property
+   profile as a unique feature card ([#18](https://github.com/m950m/MOFs_Platform/issues/18));
+   properties never transfer between compounds.
