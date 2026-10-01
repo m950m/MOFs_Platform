@@ -4,6 +4,7 @@ import streamlit as st
 
 from mofs_platform.domain.labprofile import list_capabilities
 from mofs_platform.domain.questions import get_question
+from mofs_platform.domain.references import list_references
 
 EMPTY_MARKER = "Empty / ready"
 READY_MARKER = "Ready — data recorded"
@@ -19,8 +20,9 @@ NOT_RECORDED = {
 def render_home(conn) -> None:
     question = get_question(conn)
     capabilities = list_capabilities(conn)
+    references = list_references(conn)
 
-    if question is None and not capabilities:
+    if question is None and not capabilities and not references:
         st.success(f"{EMPTY_MARKER} — no data recorded yet.")
         st.markdown(
             f"- {NOT_RECORDED['question']}\n"
@@ -36,6 +38,8 @@ def render_home(conn) -> None:
             recorded.append("research question")
         if capabilities:
             recorded.append(f"laboratory profile ({len(capabilities)} entries)")
+        if references:
+            recorded.append(f"references ({len(references)} leads)")
         st.success(f"{READY_MARKER} — " + ", ".join(recorded) + ".")
         st.markdown(
             (
@@ -54,7 +58,14 @@ def render_home(conn) -> None:
             else f"- {NOT_RECORDED['profile']}\n"
         )
         st.markdown(
-            f"- {NOT_RECORDED['sources']}\n"
+            (
+                f"**Sources:** {len(references)} reference leads — inspect under "
+                "**Sources** in the sidebar.\n"
+            )
+            if references
+            else f"- {NOT_RECORDED['sources']}\n"
+        )
+        st.markdown(
             f"- {NOT_RECORDED['candidates']}\n"
             "- HER search outcome: `not yet searched`\n"
             "- OER search outcome: `not yet searched`"
