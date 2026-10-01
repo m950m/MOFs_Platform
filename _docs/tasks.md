@@ -35,3 +35,5 @@ Tasks 004–013 are sequential: each waits for the preceding task to be Done and
 | 015 | [#15 — Help refine the research question with human-approved assistance](https://github.com/m950m/MOFs_Platform/issues/15) | Blocked — open (added 2026-10-02 by owner vision statement; runs after #14) |
 | 016 | [#16 — Actively search for candidate compounds against the saved question](https://github.com/m950m/MOFs_Platform/issues/16) | Blocked — open (added 2026-10-02 by owner vision statement; runs after #13) |
 | 017 | [#17 — Compare reported laboratory results against documented industry references](https://github.com/m950m/MOFs_Platform/issues/17) | Blocked — open (added 2026-10-02 by owner vision statement; runs after #13) |
+| 018 | [#18 — Per-compound property profile (unique aggregated feature card)](https://github.com/m950m/MOFs_Platform/issues/18) | Blocked — open (added 2026-10-02 by owner mandate; runs after #13) |
+| 019 | [#19 — Open-source collaboration: contributor evidence packages](https://github.com/m950m/MOFs_Platform/issues/19) | Blocked — open (added 2026-10-02 by owner mandate; runs after #13) |
