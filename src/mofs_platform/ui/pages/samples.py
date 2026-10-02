@@ -39,7 +39,7 @@ _WIDGET_DEFAULTS = {
     "obs_kind": "experimental",
     "obs_value": "",
     "obs_unit": "",
-    "obs_reaction": "HER",
+    "obs_reaction": "unknown",
     "obs_medium": "",
     "obs_ref_conv": "",
     "obs_loading": "",
@@ -165,6 +165,8 @@ def render_samples_page(conn) -> None:
     with st.form("observation_form"):
         st.selectbox("Sample", list(sample_options), key="obs_sample",
                      format_func=lambda k: sample_options[k])
+        st.selectbox("Source it was read from", list(ref_options), key="obs_source",
+                     format_func=lambda k: ref_options[k])
         st.selectbox("Kind", list(OBSERVATION_KINDS), key="obs_kind")
         c1, c2 = st.columns(2)
         with c1:
@@ -186,7 +188,7 @@ def render_samples_page(conn) -> None:
             ob = record_observation(
                 conn,
                 sample_id=st.session_state.get("obs_sample"),
-                source_id=1,  # observations cite the reference they were read from
+                source_id=st.session_state.get("obs_source"),
                 observation_kind=st.session_state.get("obs_kind"),
                 value=st.session_state.get("obs_value"),
                 unit=st.session_state.get("obs_unit"),
@@ -216,15 +218,21 @@ def render_samples_page(conn) -> None:
         with c2:
             st.selectbox("Sample B", list(sample_options), key="cmp_b",
                          format_func=lambda k: sample_options[k])
+        st.text_input("Evidence location for this comparison (optional)",
+                      key="cmp_location",
+                      placeholder="e.g. Methods \u00a72, fig. 1 \u2014 leave blank for unknown")
         if st.button("Compare", key="run_compare"):
             try:
                 rels = compare_samples(conn, st.session_state.get("cmp_a"),
-                                       st.session_state.get("cmp_b"))
+                                       st.session_state.get("cmp_b"),
+                                       st.session_state.get("cmp_location"))
                 for r in rels:
                     st.markdown(
                         f"- **{r['relation']}** at `{r['level']}` level — "
                         f"merge permission: `{r['merge_permission']}` — "
-                        f"review: `{r['review_state']}`\n\n  {r['reason']}"
+                        f"review: `{r['review_state']}` — "
+                        f"evidence location: {r['evidence_location'] or '`unknown`'}"
+                        f"\n\n  {r['reason']}"
                     )
             except IdentityValidationError as exc:
                 st.error(str(exc))
@@ -235,5 +243,6 @@ def render_samples_page(conn) -> None:
         for r in relations:
             st.markdown(
                 f"- #{r['left']} ↔ #{r['right']}: **{r['relation']}** (`{r['level']}`) — "
-                f"merge: `{r['merge_permission']}`"
+                f"merge: `{r['merge_permission']}` — review: `{r['review_state']}` — "
+                f"evidence location: {r['evidence_location'] or '`unknown`'}"
             )

@@ -6,8 +6,10 @@ from mofs_platform.db.connection import connect
 from mofs_platform.domain.identity import (
     IdentityValidationError,
     compare_samples,
+    list_observations,
     list_relations,
     list_samples,
+    list_states,
     record_observation,
     record_operating_state,
     record_sample,
@@ -105,7 +107,7 @@ def test_case4_reconstruction_state_labeled_author_interpretation(conn):
         epistemic_type="author_interpretation", evidence_location="fig. 3",
     )
     assert state.epistemic_type == "author_interpretation"
-    obs = a and __import__("mofs_platform.domain.identity", fromlist=["list_observations"]).list_observations(conn, a.id)
+    obs = list_observations(conn, a.id)
     assert obs[0].value == "180"  # observation stays on the prepared sample
     assert obs[0].medium == "0.5 M H2SO4" and obs[0].loading == "0.2 mg/cm2"
     # Missing phase evidence: an unknown-type state, identity unresolved, no rename
@@ -167,19 +169,50 @@ def test_observation_context_fields_stay_independently_unknown(conn):
 
 
 def test_restart_preserves_all_five_cases(db_path):
+    """Build all five labeled cases, close, reopen, verify everything survives."""
     conn = connect(db_path)
     save_question(conn, Question(wording="Q"))
     s1 = _source(conn, "10.9999/r1", "Restart fixture 1")
     s2 = _source(conn, "10.9999/r2", "Restart fixture 2")
-    a = record_sample(conn, source_id=s1, designation="Framework-F", linker="Linker-L")
-    b = record_sample(conn, source_id=s2, designation="Framework-F", linker="Linker-M")
-    compare_samples(conn, a.id, b.id)
+    # Case 1: different linkers
+    c1a = record_sample(conn, source_id=s1, designation="Framework-F", linker="Linker-L")
+    c1b = record_sample(conn, source_id=s2, designation="Framework-F", linker="Linker-M")
+    compare_samples(conn, c1a.id, c1b.id)
+    # Case 2: composite lineage + observation on the composite only
+    c2a = record_sample(conn, source_id=s1, designation="Sample-A (restart)",
+                        parent_framework_name="Framework-F")
+    c2b = record_sample(conn, source_id=s1, designation="Sample-B (restart)",
+                        parent_framework_name="Framework-F", additions="Nano-N",
+                        lineage_kind="composite", derived_from_sample_id=c2a.id)
+    record_observation(conn, sample_id=c2b.id, source_id=s1,
+                       observation_kind="experimental", value="150", unit="mV",
+                       reaction="HER", medium="0.5 M H2SO4")
+    compare_samples(conn, c2a.id, c2b.id)
+    # Case 4: operating state with author interpretation
+    record_operating_state(conn, sample_id=c2a.id, stage="during",
+                           phase_assignment="Phase-R (restart)",
+                           epistemic_type="author_interpretation",
+                           evidence_location="fig. 3 (restart)")
     conn.close()
 
     reopened = connect(db_path)
-    assert len(list_samples(reopened)) == 2
+    assert len(list_samples(reopened)) == 4  # all samples survived
     rels = list_relations(reopened)
-    assert {r["relation"] for r in rels} == {"different"}
+    relations = {r["relation"] for r in rels}
+    assert "different" in relations  # case 1
+    assert "composite" in relations  # case 2
+    assert "same_parent_framework" in relations
+    # Case 2 observation survived on the composite, not the parent:
+    c2a_r = next(s for s in list_samples(reopened) if s.designation == "Sample-A (restart)")
+    c2b_r = next(s for s in list_samples(reopened) if s.designation == "Sample-B (restart)")
+    assert len(list_observations(reopened, c2a_r.id)) == 0
+    c2b_obs = list_observations(reopened, c2b_r.id)
+    assert c2b_obs and c2b_obs[0].medium == "0.5 M H2SO4"
+    # Case 4 state survived with its author-interpretation label and location:
+    states = list_states(reopened, c2a_r.id)
+    assert states and states[0].phase_assignment == "Phase-R (restart)"
+    assert states[0].epistemic_type == "author_interpretation"
+    assert states[0].evidence_location == "fig. 3 (restart)"
     reopened.close()
 
 

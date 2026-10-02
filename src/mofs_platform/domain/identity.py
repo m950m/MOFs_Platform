@@ -19,16 +19,6 @@ BASIS_KINDS = ("experimental", "computational", "hypothetical")
 LINEAGE_KINDS = ("composite", "derived")
 STAGES = ("before", "during", "after", "unknown")
 OBSERVATION_KINDS = ("experimental", "computational", "hypothetical")
-RELATIONS = (
-    "same_reported_sample",
-    "same_parent_framework",
-    "derived",
-    "composite",
-    "different",
-    "unresolved",
-)
-
-
 class IdentityValidationError(ValueError):
     """The proposed sample/state/observation/relation cannot be recorded."""
 
@@ -311,13 +301,30 @@ def _differ(a: str | None, b: str | None) -> bool:
 def _save_relation(
     conn: sqlite3.Connection, left: int, right: int, level: str, relation: str,
     reason: str, evidence_location: str | None, merge_permission: str = "none",
+    review_state: str = "needs_verification",
 ) -> dict:
+    # Idempotent: re-running the same comparison must not stack duplicate rows.
+    existing = conn.execute(
+        "SELECT * FROM identity_relation WHERE left_sample_id = ? AND right_sample_id = ? "
+        "AND level = ? AND relation = ? AND reason = ?",
+        (left, right, level, relation, reason),
+    ).fetchone()
+    if existing is not None:
+        return {
+            "id": existing["id"], "left": existing["left_sample_id"],
+            "right": existing["right_sample_id"], "level": existing["level"],
+            "relation": existing["relation"], "reason": existing["reason"],
+            "evidence_location": existing["evidence_location"],
+            "review_state": existing["review_state"],
+            "merge_permission": existing["merge_permission"],
+        }
     with conn:
         cur = conn.execute(
             "INSERT INTO identity_relation (left_sample_id, right_sample_id, level, "
             "relation, reason, evidence_location, review_state, merge_permission) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'needs_verification', ?)",
-            (left, right, level, relation, reason, _opt(evidence_location), merge_permission),
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (left, right, level, relation, reason, _opt(evidence_location),
+             review_state, merge_permission),
         )
         rel_id = int(cur.lastrowid)
         _log(conn, "relation_recorded", rel_id, {"relation": relation, "level": level})
@@ -325,13 +332,16 @@ def _save_relation(
         "id": rel_id, "left": left, "right": right, "level": level,
         "relation": relation, "reason": reason,
         "evidence_location": _opt(evidence_location),
-        "review_state": "needs_verification", "merge_permission": merge_permission,
+        "review_state": review_state, "merge_permission": merge_permission,
     }
 
 
-def compare_samples(conn: sqlite3.Connection, a_id: int, b_id: int) -> list[dict]:
+def compare_samples(
+    conn: sqlite3.Connection, a_id: int, b_id: int, evidence_location: str | None = None
+) -> list[dict]:
     """Deterministic scoped comparison per the identity contract. Returns the
-    relation(s) per level with reason and merge permission; never merges rows."""
+    relation(s) per level with reason, evidence location, and merge permission;
+    never merges rows."""
     a = get_sample(conn, a_id)
     b = get_sample(conn, b_id)
     if a is None or b is None:
@@ -340,6 +350,22 @@ def compare_samples(conn: sqlite3.Connection, a_id: int, b_id: int) -> list[dict
         raise IdentityValidationError("Compare two distinct sample records.")
     out: list[dict] = []
     same_source = a.source_id == b.source_id
+
+    # Documented lineage is the researcher's explicit statement and wins first.
+    if b.derived_from_sample_id == a.id and b.lineage_kind in LINEAGE_KINDS:
+        out.append(_save_relation(
+            conn, a.id, b.id, "sample", b.lineage_kind,
+            f"Documented lineage: '{b.designation}' is recorded as {b.lineage_kind} "
+            f"of '{a.designation}'" + (f" with additions: {b.additions}" if b.additions else "."),
+            evidence_location,
+        ))
+        if _same(a.parent_framework_name, b.parent_framework_name) and a.parent_framework_name:
+            out.append(_save_relation(
+                conn, a.id, b.id, "framework", "same_parent_framework",
+                f"Both cite the same parent framework '{a.parent_framework_name}'.",
+                evidence_location,
+            ))
+        return out
 
     if _differ(a.linker, b.linker):
         reason = (
@@ -367,37 +393,44 @@ def compare_samples(conn: sqlite3.Connection, a_id: int, b_id: int) -> list[dict
         return out
 
     if same_source and _same(a.designation, b.designation):
+        # Conflicting attribute values undermine designation sameness: expose
+        # both values and block merging instead of silently absorbing them.
+        conflicts = [
+            (field, getattr(a, field), getattr(b, field))
+            for field in ("composition", "metal_node", "parent_framework_name",
+                          "activation", "structure_ref", "additions")
+            if _differ(getattr(a, field), getattr(b, field))
+        ]
+        if conflicts:
+            quoted = "; ".join(
+                f"{f}: '{va}' vs '{vb}'" for f, va, vb in conflicts
+            )
+            out.append(_save_relation(
+                conn, a.id, b.id, "sample", "unresolved",
+                f"Same source and designation, but conflicting attributes — {quoted}. "
+                "Both values stay visible; merging is blocked pending review.",
+                evidence_location, review_state="conflicted",
+            ))
+            return out
         out.append(_save_relation(
             conn, a.id, b.id, "sample", "same_reported_sample",
             "Same source explicitly designates the same reported sample "
             "(designation-level sameness, not physical batch identity).",
-            None, merge_permission="within_source_after_review",
+            evidence_location, merge_permission="within_source_after_review",
         ))
-        return out
-
-    if b.derived_from_sample_id == a.id and b.lineage_kind in LINEAGE_KINDS:
-        out.append(_save_relation(
-            conn, a.id, b.id, "sample", b.lineage_kind,
-            f"Documented lineage: '{b.designation}' is recorded as {b.lineage_kind} "
-            f"of '{a.designation}'" + (f" with additions: {b.additions}" if b.additions else "."),
-            None,
-        ))
-        if _same(a.parent_framework_name, b.parent_framework_name) and a.parent_framework_name:
-            out.append(_save_relation(
-                conn, a.id, b.id, "framework", "same_parent_framework",
-                f"Both cite the same parent framework '{a.parent_framework_name}'.", None,
-            ))
         return out
 
     if _same(a.parent_framework_name, b.parent_framework_name) and a.parent_framework_name:
         out.append(_save_relation(
             conn, a.id, b.id, "framework", "same_parent_framework",
-            f"Both cite the same parent framework '{a.parent_framework_name}'.", None,
+            f"Both cite the same parent framework '{a.parent_framework_name}'.",
+            evidence_location,
         ))
         out.append(_save_relation(
             conn, a.id, b.id, "sample", "unresolved",
             "Shared parent alone never merges prepared samples — activation, "
-            "additions, and designation history are not established here.", None,
+            "additions, and designation history are not established here.",
+            evidence_location,
         ))
         return out
 
@@ -409,9 +442,10 @@ def compare_samples(conn: sqlite3.Connection, a_id: int, b_id: int) -> list[dict
     if not _same(a.designation, b.designation):
         missing.append(f"designations differ ('{a.designation}' vs '{b.designation}')")
     reason = "Identity unresolved — " + "; ".join(missing) + ". No merge; human review required."
-    out.append(_save_relation(conn, a.id, b.id, "sample", "unresolved", reason, None))
+    out.append(_save_relation(conn, a.id, b.id, "sample", "unresolved", reason, evidence_location))
     out.append(_save_relation(conn, a.id, b.id, "framework", "unresolved",
-                              "No cited structural evidence connects or distinguishes the frameworks.", None))
+                              "No cited structural evidence connects or distinguishes the frameworks.",
+                              evidence_location))
     return out
 
 
