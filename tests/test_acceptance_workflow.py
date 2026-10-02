@@ -12,7 +12,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "acceptance_run.py"
 
 
 def test_acceptance_workflow_all_steps_pass():
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: PLW1510 - returncode asserted below
         [sys.executable, str(SCRIPT)], capture_output=True, text=True, timeout=120,
         cwd=str(SCRIPT.parents[1]),
     )
