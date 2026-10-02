@@ -7,7 +7,6 @@ import streamlit as st
 
 from mofs_platform.domain.evidence import list_assertions
 from mofs_platform.domain.identity import list_relations
-from mofs_platform.domain.references import list_references
 from mofs_platform.domain.review import (
     correct_assertion,
     correct_identity_relation,
@@ -45,8 +44,6 @@ def render_review_page(conn) -> None:
         st.success(flash)
     _apply_reset_request()
 
-    references = list_references(conn)
-    ref_label = {r.id: f"#{r.id} — {r.title or r.doi}" for r in references}
     assertions = list_assertions(conn)
     relations = list_relations(conn)
 
@@ -127,8 +124,8 @@ def render_review_page(conn) -> None:
             st.text_input("Corrected evidence location (optional)", key="rev_rel_location")
             st.text_input("Editor / reviewer", key="rev_rel_editor")
             st.text_area("Reason (required)", key="rev_rel_reason", height=60)
-            action = st.radio("Action", ["Save correction", "Mark reviewed (D4)"],
-                              key="rev_rel_action", horizontal=True)
+            st.radio("Action", ["Save correction", "Mark reviewed (D4)"],
+                     key="rev_rel_action", horizontal=True)
             st.form_submit_button("Apply", key="apply_relation", type="primary")
         if st.session_state.get("apply_relation"):
             try:
