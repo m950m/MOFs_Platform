@@ -1,3 +1,4 @@
+from conftest import all_text
 """Route-failure handling tests (issue #9) — Crossref route + manual note."""
 
 import pytest
@@ -131,3 +132,28 @@ def test_manual_route_has_no_network_failures_documented():
     src = Path("src/mofs_platform/domain/references.py").read_text(encoding="utf-8")
     assert "httpx" not in src  # the manual/reference domain never touches HTTP
     assert {"no_hit", "rate_limited", "timeout", "offline"} & set(NEXT_STEPS)  # taxonomy exists for the network route only
+
+
+def test_attempts_log_is_rendered_in_ui(run_app, db_path, monkeypatch):
+    """UI-level check: the attempts audit list renders outcomes + next steps."""
+    conn = connect(db_path)
+    save_question(conn, Question(wording="Q"))
+    add_manual_reference(conn, doi="10.9999/ui-attempt", title="UI attempts fixture")
+    monkeypatch.setattr(
+        "mofs_platform.sources.crossref.fetch_metadata", lambda *a, **k: _fail("rate_limited")
+    )
+    enrich_with_crossref(conn, "10.9999/ui-attempt" and _last_ref_id(conn), "owner@example.com")
+    conn.close()
+    from mofs_platform.sources import crossref  # noqa: F401
+
+    at = run_app()
+    at.sidebar.radio[0].set_value("Sources")
+    at.run()
+    text = all_text(at)
+    assert "Route attempts (1)" in text
+    assert "`rate_limited`" in text
+    assert "Wait and retry later" in text
+
+
+def _last_ref_id(conn):
+    return conn.execute("SELECT id FROM source ORDER BY id DESC LIMIT 1").fetchone()[0]

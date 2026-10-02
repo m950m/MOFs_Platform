@@ -176,13 +176,13 @@ def render_sources_page(conn) -> None:
             st.markdown(
                 f"- {icon} `{at_row.outcome}` — {at_row.target} — {at_row.created_at}"
                 + (f"\n  Next step: {at_row.next_step}" if at_row.next_step else "")
+                + (f"\n  Detail: {at_row.note}" if at_row.note else "")
             )
-        st.caption(
-            "Manual capture is an offline route: the network failure kinds above "
-            "cannot apply to it. No automatic retry exists — every retry is a "
-            "manual action. Failed attempts stay failed in this log even when a "
-            "later attempt succeeds."
-        )
+    st.caption(
+        "Manual capture is an offline route: network failure kinds cannot apply "
+        "to it. No automatic retry exists — every retry is a manual action. "
+        "Failed attempts stay failed in this log even when a later attempt succeeds."
+    )
     st.caption(
         "Enrichment fills missing bibliographic fields only and never verifies a "
         "sample. Prohibited content is never fetched and no unapproved provider is used."
