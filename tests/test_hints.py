@@ -147,3 +147,15 @@ def test_hints_recompute_after_reopen(db_path):
     hints = question_hints(Question(wording=q["wording"], reactions=q["reactions"]))
     assert any(h["rule"] == "R1" for h in hints)  # recomputed from saved values
     reopened.close()
+
+
+def test_r1_plural_acronyms_recognized():
+    hints = question_hints(_q(wording="Screen HERs and OERs.", reactions="HER"))
+    r1 = [h for h in hints if h["rule"] == "R1"]
+    assert any("OER" in h["message"] for h in r1)
+
+
+def test_r1_english_pronoun_her_never_fires():
+    hints = question_hints(_q(wording="Summarize what her experiments showed.",
+                              reactions="HER"))
+    assert not [h for h in hints if h["rule"] == "R1"]

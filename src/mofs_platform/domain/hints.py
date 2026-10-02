@@ -15,10 +15,13 @@ from mofs_platform.domain.questions import Question
 
 # Word-boundary tokens: `\bher\b` cannot match "where"; full phrases cover
 # spelled-out forms.
+# Acronyms are matched CASE-SENSITIVE (the English pronoun "her" must never
+# fire a hint; audit finding) and accept plurals ("HERs"/"OERs"). Spelled-out
+# phrases are case-insensitive.
 _REACTION_PATTERNS = {
-    "HER": [re.compile(r"\bher\b", re.IGNORECASE),
+    "HER": [re.compile(r"\bHERs?\b"),
             re.compile(r"hydrogen\s+evolution", re.IGNORECASE)],
-    "OER": [re.compile(r"\boer\b", re.IGNORECASE),
+    "OER": [re.compile(r"\bOERs?\b"),
             re.compile(r"oxygen\s+evolution", re.IGNORECASE)],
 }
 
