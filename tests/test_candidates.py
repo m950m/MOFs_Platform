@@ -60,7 +60,7 @@ def test_empty_state_shows_no_invented_candidates_and_retrieval_outcomes(db_path
 
 
 def test_card_shows_reason_class_parent_modifications_status(conn_with_fixture):
-    conn, ref_id, sample_id = conn_with_fixture
+    conn, _ref_id, sample_id = conn_with_fixture
     card = get_candidate_card(conn, sample_id)
     assert "Sample-A (synthetic)" in card.retrieval_reason
     assert "Framework-F (synthetic)" in card.retrieval_reason
@@ -70,7 +70,7 @@ def test_card_shows_reason_class_parent_modifications_status(conn_with_fixture):
 
 
 def test_card_follows_claim_to_provenance_and_gap_fields(conn_with_fixture):
-    conn, ref_id, sample_id = conn_with_fixture
+    conn, _ref_id, sample_id = conn_with_fixture
     card = get_candidate_card(conn, sample_id)
     assert len(card.assertions) == 1
     a = card.assertions[0]
