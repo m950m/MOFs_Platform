@@ -71,6 +71,54 @@ def _review_event(
     return int(cur.lastrowid)
 
 
+def correct_identity_relation(
+    conn: sqlite3.Connection, *, relation_id: int, new_evidence_location: str | None,
+    editor: str | None, reason: str | None,
+) -> dict:
+    """Correct a relation's evidence location with full attribution. A reviewed
+    relation returns to needs_verification — approvals never cover changes."""
+    rel = conn.execute(
+        "SELECT * FROM identity_relation WHERE id = ?", (relation_id,)
+    ).fetchone()
+    if rel is None:
+        raise ReviewValidationError(f"Relation #{relation_id} does not exist.")
+    missing = [
+        name for name, value in (("editor (who is correcting)", editor),
+                                 ("reason for the correction", reason))
+        if not _opt(value)
+    ]
+    if missing:
+        raise ReviewValidationError(
+            "Correction rejected — missing: " + "; ".join(missing) + "."
+            " The saved history is untouched."
+        )
+    was_reviewed = rel["review_state"] == "reviewed"
+    new_state = "needs_verification" if was_reviewed else rel["review_state"]
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE identity_relation SET evidence_location = ?, review_state = ? "
+                "WHERE id = ?",
+                (_opt(new_evidence_location), new_state, relation_id),
+            )
+            updated = conn.execute(
+                "SELECT * FROM identity_relation WHERE id = ?", (relation_id,)
+            ).fetchone()
+            _review_event(
+                conn, entity_type="identity_relation", entity_id=relation_id,
+                action="corrected", reviewer=_opt(editor), reason=_opt(reason),
+                supporting_location=None, threshold_note=None,
+                previous=dict(rel), updated=dict(updated),
+            )
+    except sqlite3.Error as exc:
+        raise ReviewPersistenceError(
+            f"Saving failed; previously saved records are unchanged. ({exc})"
+        ) from exc
+    return {"id": relation_id, "review_state": new_state,
+            "evidence_location": _opt(new_evidence_location),
+            "awaiting_re_review": was_reviewed}
+
+
 def list_review_events(conn: sqlite3.Connection, entity_type: str | None = None,
                        entity_id: int | None = None) -> list[ReviewRecord]:
     if entity_type and entity_id:
@@ -256,6 +304,17 @@ def review_identity_relation(
     if not _opt(reason):
         missing.append("reason stating how this relation meets the D4 threshold")
     if missing:
+        try:
+            with conn:
+                _review_event(
+                    conn, entity_type="identity_relation", entity_id=relation_id,
+                    action="review_rejected", reviewer=_opt(reviewer), reason=_opt(reason),
+                    supporting_location=_opt(supporting_location),
+                    threshold_note="unmet: " + "; ".join(missing),
+                    previous=dict(rel), updated={**dict(rel), "review_state": rel["review_state"]},
+                )
+        except sqlite3.Error:
+            pass
         raise ReviewValidationError(
             "Review rejected — unmet D4 requirements: " + "; ".join(missing) + "."
         )
