@@ -8,30 +8,35 @@ outcome matches, 1 otherwise. Offline by construction (no network calls).
 Usage: .venv/bin/python scripts/acceptance_run.py [--out PATH]
 """
 
-import json
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from mofs_platform.db.connection import connect  # noqa: E402
-from mofs_platform.domain.attempts import list_attempts  # noqa: E402
-from mofs_platform.domain.candidates import get_candidate_card  # noqa: E402
-from mofs_platform.domain.evidence import record_assertion  # noqa: E402
-from mofs_platform.domain.identity import (  # noqa: E402
-    compare_samples, record_observation, record_operating_state, record_sample,
+from mofs_platform.db.connection import connect
+from mofs_platform.domain.attempts import list_attempts
+from mofs_platform.domain.candidates import get_candidate_card
+from mofs_platform.domain.evidence import record_assertion
+from mofs_platform.domain.identity import (
+    compare_samples,
+    record_observation,
+    record_operating_state,
+    record_sample,
 )
-from mofs_platform.domain.labfit import assess_fit, latest_assessment  # noqa: E402
-from mofs_platform.domain.labprofile import add_capability, update_capability  # noqa: E402
-from mofs_platform.domain.questions import Question, get_question, save_question  # noqa: E402
-from mofs_platform.domain.references import (  # noqa: E402
-    add_manual_reference, enrich_with_crossref,
+from mofs_platform.domain.labfit import assess_fit, latest_assessment
+from mofs_platform.domain.labprofile import add_capability, update_capability
+from mofs_platform.domain.questions import Question, get_question, save_question
+from mofs_platform.domain.references import (
+    add_manual_reference,
+    enrich_with_crossref,
 )
-from mofs_platform.domain.review import (  # noqa: E402
-    correct_assertion, review_assertion, review_identity_relation,
+from mofs_platform.domain.review import (
+    correct_assertion,
+    review_assertion,
+    review_identity_relation,
 )
-from mofs_platform.sources import crossref  # noqa: E402
+from mofs_platform.sources import crossref
 
 RESULTS: list[dict] = []
 
@@ -87,9 +92,9 @@ def run(db_path: Path) -> None:
     a1 = record_assertion(conn, source_id=ref.id, claim_type="preparation",
                           claim_text="Activated under protocol P (synthetic)",
                           evidence_location="Methods §2", epistemic_type="directly_reported")
-    a2 = record_assertion(conn, source_id=ref.id, claim_type="preparation",
-                          claim_text="Requires Glovebox-M (synthetic)",
-                          epistemic_type="directly_reported")
+    record_assertion(conn, source_id=ref.id, claim_type="preparation",
+                     claim_text="Requires Glovebox-M (synthetic)",
+                     epistemic_type="directly_reported")
     c1 = record_assertion(conn, source_id=ref.id, claim_type="property",
                           claim_text="Overpotential 180 mV (synthetic)",
                           epistemic_type="directly_reported")
@@ -145,7 +150,7 @@ def run(db_path: Path) -> None:
         review_identity_relation(conn, relation_id=unresolved["id"],
                                  reviewer="Mohammed (owner)",
                                  supporting_location="both papers", reason="tried")
-    except Exception:
+    except Exception:  # noqa: BLE001 - D5 refusal raises ReviewValidationError
         d5_refused = True
     check("S7 review/correction/D5",
           "corrected reviewed claim → needs_verification (no inherited approval); "
@@ -234,15 +239,22 @@ def main() -> int:
     lines = [
         "# Acceptance run 001 — complete first evidence workflow (issue #13)",
         "",
-        "**Date:** 2026-10-02 (generation date) · **Project version:** 0.1.0 (branch task-013) · "
-        "**Question:** the production question (owner-entered, data/platform.db id 1) is "
-        "the context; this fixture run uses a shortened synthetic variant · "
-        "**Source contract:** D2 (Crossref metadata + manual entry; no full text) · "
-        "**Stack:** D3 (Python/Streamlit/SQLite) · **Review rule:** D4 (named human + "
-        "exact cited location + reason) · **Equivalence:** D5 (no cross-source "
-        "equivalence, ever) · **Profile:** all entries owner-entered (`unknown` until "
-        "confirmed) · **Fixtures:** every record below is visibly labeled `(synthetic)` "
-        "and lives in a throwaway database — separated from any real evidence.",
+        ("**Date:** 2026-10-02 (generation date) · **Project version:** 0.1.0 "
+         "(branch task-013) · "
+         "**Question:** the production question (owner-entered, data/platform.db "
+         "id 1) is the context; this fixture run uses a shortened synthetic "
+         "variant · "
+         "**Source contract:** D2 (Crossref metadata + manual entry; no full "
+         "text) · "
+         "**Stack:** D3 (Python/Streamlit/SQLite) · **Review rule:** D4 (named "
+         "human + exact cited location + reason) · **Equivalence:** D5 (no "
+         "cross-source equivalence, ever) · "
+         "**Profile:** no entry is seeded — every capability fact starts "
+         "`unknown` until owner-entered (rule per plan §2.5; register D7 entry "
+         "recorded 2026-10-02) · "
+         "**Fixtures:** records are labeled `(synthetic)` or `fixture`, review "
+         "actions in the fixture are performed by the script, and everything "
+         "lives in a throwaway database — separated from any real evidence."),
         "",
         "| Step | Expected | Actual | Detail |",
         "|---|---|---|---|",
@@ -251,23 +263,23 @@ def main() -> int:
         lines.append(f"| {r['step']} | {r['expected']} | {r['actual']} | {r['detail']} |")
     lines += [
         "",
-        "**Route-failure applicability:** the D2 route combines manual capture "
-        "(offline — network failures inapplicable) with Crossref metadata "
-        "enrichment (no_hit / rate_limited / timeout / offline / bad_response / "
-        "bad_input all typed and tested in tests/test_route_failures.py). No "
-        "prohibited content is fetched; no provider is substituted.",
+        ("**Route-failure applicability:** the D2 route combines manual capture "
+         "(offline — network failures inapplicable) with Crossref metadata "
+         "enrichment (no_hit / rate_limited / timeout / offline / bad_response / "
+         "bad_input all typed and tested in tests/test_route_failures.py). No "
+         "prohibited content is fetched; no provider is substituted."),
         "",
-        "**Scientific boundary:** this run verifies software-workflow behavior "
-        "only. It makes no claim of catalyst validation, novelty, synthesis "
-        "success, or measured research benefit.",
+        ("**Scientific boundary:** this run verifies software-workflow behavior "
+         "only. It makes no claim of catalyst validation, novelty, synthesis "
+         "success, or measured research benefit."),
         "",
         f"**Overall: {'ALL CHECKS PASS' if not failed else 'FAILURES PRESENT'}** "
         f"({len(RESULTS) - len(failed)}/{len(RESULTS)} steps).",
         "",
-        "**Per-step Expected texts state the contract behavior; where a step's "
-        "inline check is narrower, the clause is grounded in the named test "
-        "modules (test_labprofile_domain, test_identity_domain, test_review, "
-        "test_labfit, test_route_failures).**",
+        ("**Per-step Expected texts state the contract behavior; where a step's "
+         "inline check is narrower, the clause is grounded in the named test "
+         "modules (test_labprofile_domain, test_identity_domain, test_review, "
+         "test_labfit, test_route_failures).**"),
     ]
     output = "\n".join(lines) + "\n"
     args = sys.argv[1:]
