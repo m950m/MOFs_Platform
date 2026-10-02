@@ -34,6 +34,7 @@ def test_migrations_are_idempotent(db_path):
         "0008_review.sql",
         "0009_fit_assessment.sql",
         "0010_sample_correction.sql",
+        "0011_active_search.sql",
     ]
     second.close()
 

@@ -22,6 +22,18 @@ from mofs_platform.domain.references import (
     list_references,
     source_dependency_warning,
 )
+from mofs_platform.domain.search import (
+    NEXT_STEPS as SEARCH_NEXT_STEPS,
+)
+from mofs_platform.domain.search import (
+    SearchValidationError,
+    capture_hit,
+    derive_query,
+    dismiss_hit,
+    list_hits,
+    list_runs,
+    run_active_search,
+)
 from mofs_platform.ui._widgets import esc
 
 SOURCES_PAGE_TITLE = "Sources"
@@ -183,3 +195,145 @@ def render_sources_page(conn) -> None:
         "Enrichment fills missing bibliographic fields only and never verifies a "
         "sample. Prohibited content is never fetched and no unapproved provider is used."
     )
+
+    st.subheader("Active search (D9: Crossref + OpenAlex)")
+    if question is None:  # pragma: no cover - early return above already guards
+        st.info("Save the research question first — queries derive from it.")
+    else:
+        derived = derive_query(question.wording)
+        st.caption(
+            "Query derivation is transparent: the default query is the saved "
+            "question's wording, verbatim. You can edit it below — the exact "
+            "text sent is what gets recorded. Hit order is provider retrieval "
+            "order, never a ranking. Every hit is a lead "
+            "(`needs_verification`); HER and OER evidence streams stay "
+            "separate per hit and metadata never claims measured performance."
+        )
+        query_text = st.text_area(
+            "Search query (the exact text that will be sent)",
+            value=derived["query"],
+            key="search_query",
+            height=80,
+        )
+        scope = (
+            "owner_question_verbatim"
+            if query_text.strip() == question.wording.strip()
+            else "owner_edited"
+        )
+        col_p, col_r = st.columns([1, 3])
+        with col_p:
+            provider = st.radio("Provider", ["crossref", "openalex"], key="search_provider",
+                                horizontal=True)
+        with col_r:
+            st.caption(
+                "Runs hit the live polite-pool APIs (D9). No automatic retry "
+                "exists; failed runs stay failed in the log."
+            )
+        if st.button("Run search", key="run_search", type="primary"):
+            try:
+                run, failure = run_active_search(
+                    conn, provider, query_text, scope,
+                    st.session_state.get("crossref_mailto") or None,
+                )
+                if failure is not None:
+                    st.warning(
+                        f"`{failure.kind}` — {failure.detail} Next step: "
+                        f"{SEARCH_NEXT_STEPS[failure.kind]}"
+                    )
+                else:
+                    st.session_state["flash"] = (
+                        f"Search run #{run.id} recorded: {run.result_count} hit(s) "
+                        f"({provider}) — every hit is a lead."
+                    )
+                    st.rerun()
+            except SearchValidationError as exc:
+                st.error(str(exc))
+
+        runs = list_runs(conn)
+        if runs:
+            st.subheader(f"Search runs ({len(runs)})")
+            latest = runs[0]
+            for run in runs:
+                icon = "✅" if run.outcome == "success" else "⚠️"
+                st.markdown(
+                    f"- {icon} run #{run.id} `{run.provider}` `{run.outcome}` — "
+                    f"{run.result_count} hit(s) — scope: `{run.scope}` — {run.created_at}"
+                    + (f"\n\n  Query: {esc(run.query_text)}" if run.outcome == "success" else "")
+                    + (f"\n  Next step: {run.next_step}" if run.next_step else "")
+                )
+            hits = list_hits(conn, latest.id)
+            if latest.outcome == "success" and hits:
+                st.subheader(f"Hits from run #{latest.id} — leads, not verified candidates")
+                for hit in hits:
+                    her = "yes" if hit.her_token else "no"
+                    oer = "yes" if hit.oer_token else "no"
+                    label = hit.title or hit.doi or f"Hit #{hit.id}"
+                    lines = [
+                        f"**{label}**" + (f" ({hit.issued_year})" if hit.issued_year else ""),
+                        (
+                            f"- DOI: {hit.doi or '`unknown`'} — container: "
+                            f"{esc(hit.container) or '`unknown`'} — provider: `{hit.provider}`"
+                        ),
+                        (
+                            f"- HER token in title: {her} — OER token in title: {oer} — "
+                            "the two evidence streams stay separate until real evidence "
+                            "is captured (metadata alone never verifies either)."
+                        ),
+                        f"- Status: `{hit.status}`",
+                    ]
+                    st.markdown("\n".join(lines))
+                    c_cap, c_dis = st.columns(2)
+                    with c_cap:
+                        if hit.status == "needs_verification" and st.button(
+                            "Capture as reference", key=f"capture_hit_{hit.id}"
+                        ):
+                            try:
+                                _hit, source_id = capture_hit(
+                                    conn, hit.id,
+                                    st.session_state.get("ref_contributor")
+                                    or "Mohammed (owner)",
+                                )
+                                st.session_state["flash"] = (
+                                    f"Hit #{hit.id} captured as reference #{source_id} "
+                                    "with search provenance — a lead like any other."
+                                )
+                                st.rerun()
+                            except SearchValidationError as exc:
+                                st.error(str(exc))
+                    with c_dis:
+                        if hit.status == "captured":
+                            st.caption(
+                                f"Captured as reference #{hit.captured_source_id} — "
+                                "dismissal is not available."
+                            )
+                        else:
+                            with st.form(f"dismiss_hit_{hit.id}"):
+                                st.text_input("Dismissed by", key=f"dis_by_{hit.id}")
+                                st.text_input(
+                                    "Dismissal reason (required)",
+                                    key=f"dis_reason_{hit.id}",
+                                )
+                                if st.form_submit_button(
+                                    "Dismiss lead", key=f"dis_btn_{hit.id}"
+                                ):
+                                    try:
+                                        dismiss_hit(
+                                            conn, hit.id,
+                                            st.session_state.get(f"dis_by_{hit.id}"),
+                                            st.session_state.get(f"dis_reason_{hit.id}"),
+                                        )
+                                        st.session_state["flash"] = (
+                                            f"Hit #{hit.id} dismissed with a recorded "
+                                            "reason — it stays auditable in the log."
+                                        )
+                                        st.rerun()
+                                    except SearchValidationError as exc:
+                                        st.error(str(exc))
+                    st.divider()
+        else:
+            st.info("No search runs yet — run one above.")
+        st.caption(
+            "`no_hit` never means the material is unstudied. A metadata hit never "
+            "claims experimental preparation or measured performance. Prohibited "
+            "content is never fetched and no provider beyond D9 is used."
+        )

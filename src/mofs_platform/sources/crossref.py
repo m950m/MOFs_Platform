@@ -14,7 +14,15 @@ from dataclasses import dataclass
 
 import httpx
 
+from mofs_platform.sources.search_common import (
+    SearchFailure,
+    SearchHit,
+    normalize_doi,
+    title_tokens,
+)
+
 BASE_URL = "https://api.crossref.org/works/"
+SEARCH_URL = "https://api.crossref.org/works"
 DEFAULT_TIMEOUT = 10.0
 
 FAILURE_KINDS = ("no_hit", "rate_limited", "timeout", "offline", "bad_response", "bad_input")
@@ -104,3 +112,59 @@ def fetch_metadata(
             f"'{clean}' — nothing would be filled; verify the DOI.",
         )
     return mapped
+
+
+def _map_search_item(item: dict) -> SearchHit:
+    issued = (item.get("issued") or {}).get("date-parts") or [[None]]
+    year = issued[0][0] if issued and issued[0] else None
+    title = _first(item.get("title"))
+    her, oer = title_tokens(title)
+    return SearchHit(
+        doi=normalize_doi(item.get("DOI")),
+        title=title,
+        issued_year=str(year) if year is not None else None,
+        container=_first(item.get("container-title")),
+        her_token=her,
+        oer_token=oer,
+    )
+
+
+def search_works(
+    query: str,
+    mailto: str | None,
+    timeout: float = DEFAULT_TIMEOUT,
+    rows: int = 8,
+    transport: httpx.BaseTransport | None = None,
+) -> list[SearchHit] | SearchFailure:
+    """GET /works?query=... (polite pool). Hit order is provider retrieval
+    order — never a ranking claim."""
+    if not query or not query.strip():
+        return SearchFailure("bad_input", "The search query is empty.")
+    if rows < 1 or rows > 25:
+        return SearchFailure("bad_input", f"rows must be 1..25 — got {rows}.")
+    try:
+        with httpx.Client(timeout=timeout, transport=transport) as client:
+            params = {"query": query, "rows": str(rows)}
+            if mailto:
+                params["mailto"] = mailto
+            response = client.get(SEARCH_URL, params=params)
+    except httpx.TimeoutException as exc:
+        return SearchFailure("timeout", f"Crossref did not respond in time. ({exc})")
+    except httpx.ConnectError as exc:
+        return SearchFailure("offline", f"Could not reach Crossref. ({exc})")
+    except httpx.HTTPError as exc:
+        return SearchFailure("bad_response", f"HTTP problem talking to Crossref. ({exc})")
+
+    if response.status_code == 429:
+        return SearchFailure("rate_limited", "Crossref rate limit hit — back off and retry later.")
+    if response.status_code != 200:
+        return SearchFailure("bad_response", f"Crossref returned HTTP {response.status_code}.")
+    try:
+        items = response.json()["message"]["items"]
+    except Exception as exc:  # noqa: BLE001 - any malformed body is a bad response
+        return SearchFailure("bad_response", f"Crossref body was not valid search output. ({exc})")
+    if not isinstance(items, list):
+        return SearchFailure("bad_response", "Crossref search body had an unexpected shape.")
+    if not items:
+        return SearchFailure("no_hit", "No Crossref records matched this query.")
+    return [_map_search_item(item) for item in items]

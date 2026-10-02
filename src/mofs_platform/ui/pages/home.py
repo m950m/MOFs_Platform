@@ -5,6 +5,7 @@ import streamlit as st
 from mofs_platform.domain.labprofile import list_capabilities
 from mofs_platform.domain.questions import get_question
 from mofs_platform.domain.references import list_references
+from mofs_platform.domain.search import list_runs
 
 EMPTY_MARKER = "Empty / ready"
 READY_MARKER = "Ready — data recorded"
@@ -15,6 +16,24 @@ NOT_RECORDED = {
     "sources": "No sources recorded yet.",
     "candidates": "No candidates, samples, or evidence assertions recorded yet.",
 }
+
+
+def _search_outcome_lines(conn) -> str:
+    """Latest active-search outcome per D9 provider — honest when empty."""
+    runs = list_runs(conn, limit=10)
+    lines = []
+    for provider in ("crossref", "openalex"):
+        latest = next((r for r in runs if r.provider == provider), None)
+        if latest is None:
+            lines.append(f"- Active search ({provider}): `not yet searched`")
+        else:
+            icon = "✅" if latest.outcome == "success" else "⚠️"
+            lines.append(
+                f"- Active search ({provider}): {icon} `{latest.outcome}` "
+                f"({latest.result_count} hit(s), {latest.created_at}) — run "
+                f"#{latest.id}"
+            )
+    return "\n".join(lines)
 
 
 def render_home(conn) -> None:
@@ -29,8 +48,7 @@ def render_home(conn) -> None:
             f"- {NOT_RECORDED['profile']}\n"
             f"- {NOT_RECORDED['sources']}\n"
             f"- {NOT_RECORDED['candidates']}\n"
-            "- HER search outcome: `not yet searched`\n"
-            "- OER search outcome: `not yet searched`"
+            + _search_outcome_lines(conn)
         )
     else:
         recorded = []
@@ -66,9 +84,7 @@ def render_home(conn) -> None:
             else f"- {NOT_RECORDED['sources']}\n"
         )
         st.markdown(
-            f"- {NOT_RECORDED['candidates']}\n"
-            "- HER search outcome: `not yet searched`\n"
-            "- OER search outcome: `not yet searched`"
+            f"- {NOT_RECORDED['candidates']}\n" + _search_outcome_lines(conn)
         )
     st.caption(
         "This startup validates the entry point only. "
