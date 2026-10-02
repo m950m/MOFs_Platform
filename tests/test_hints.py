@@ -182,7 +182,7 @@ def test_ui_consistent_question_shows_no_hint_section(run_app, db_path):
 
     conn = connect(db_path)
     save_question(conn, _q(wording="Bifunctional HER and OER screening of MOFs",
-                           reactions="HER, OER", material_classes="MOF"))
+                           reactions="HER, OER", classes="MOF"))
     conn.close()
     at = run_app()
     at.sidebar.radio[0].set_value("Research question")
