@@ -31,7 +31,7 @@ Tasks 004–013 are sequential: each waits for the preceding task to be Done and
 | 011 | [#11 — Correct and review individual assertions](https://github.com/m950m/MOFs_Platform/issues/11) | Done — closed as completed |
 | 012 | [#12 — Explain laboratory fit from recorded requirements](https://github.com/m950m/MOFs_Platform/issues/12) | Done — closed as completed |
 | 013 | [#13 — Check the complete first evidence workflow](https://github.com/m950m/MOFs_Platform/issues/13) | Done — closed as completed |
-| 014 | [#14 — Flag cross-field consistency hints in the research question](https://github.com/m950m/MOFs_Platform/issues/14) | Blocked — open (added 2026-10-01 by owner decision; runs after #13) |
+| 014 | [#14 — Flag cross-field consistency hints in the research question](https://github.com/m950m/MOFs_Platform/issues/14) | Done — closed as completed |
 | 015 | [#15 — Help refine the research question with human-approved assistance](https://github.com/m950m/MOFs_Platform/issues/15) | Blocked — open (added 2026-10-02 by owner vision statement; runs after #14) |
 | 016 | [#16 — Actively search for candidate compounds against the saved question](https://github.com/m950m/MOFs_Platform/issues/16) | Blocked — open (added 2026-10-02 by owner vision statement; runs after #13) |
 | 017 | [#17 — Compare reported laboratory results against documented industry references](https://github.com/m950m/MOFs_Platform/issues/17) | Blocked — open (added 2026-10-02 by owner vision statement; runs after #13) |
