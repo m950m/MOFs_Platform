@@ -8,6 +8,7 @@ and a shared DOI never implies the same tested sample.
 
 import streamlit as st
 
+from mofs_platform.domain.attempts import list_attempts
 from mofs_platform.domain.questions import get_question
 from mofs_platform.domain.references import (
     _LEVEL_LABELS,
@@ -98,7 +99,11 @@ def render_sources_page(conn) -> None:
                 if st.button("Refresh from Crossref", key=f"enrich_{ref.id}"):
                     _updated, failure = enrich_with_crossref(conn, ref.id, mailto)
                     if failure is not None:
-                        st.warning(_FAILURE_MESSAGES.get(failure.kind, failure.detail))
+                        from mofs_platform.domain.attempts import NEXT_STEPS
+                        st.warning(
+                            _FAILURE_MESSAGES.get(failure.kind, failure.detail)
+                            + " Next step: " + NEXT_STEPS.get(failure.kind, "none.")
+                        )
                     else:
                         st.session_state["flash"] = (
                             "Metadata refreshed from Crossref — the reference remains a lead."
@@ -162,6 +167,21 @@ def render_sources_page(conn) -> None:
         "Contact e-mail for the Crossref polite pool",
         key="crossref_mailto",
         placeholder="your e-mail — sent with each request",
+    )
+    attempts = list_attempts(conn)
+    if attempts:
+        st.subheader(f"Route attempts ({len(attempts)}) — Crossref (D2)")
+        for at_row in attempts:
+            icon = "✅" if at_row.outcome == "success" else "⚠️"
+            st.markdown(
+                f"- {icon} `{at_row.outcome}` — {at_row.target} — {at_row.created_at}"
+                + (f"\n  Next step: {at_row.next_step}" if at_row.next_step else "")
+                + (f"\n  Detail: {at_row.note}" if at_row.note else "")
+            )
+    st.caption(
+        "Manual capture is an offline route: network failure kinds cannot apply "
+        "to it. No automatic retry exists — every retry is a manual action. "
+        "Failed attempts stay failed in this log even when a later attempt succeeds."
     )
     st.caption(
         "Enrichment fills missing bibliographic fields only and never verifies a "

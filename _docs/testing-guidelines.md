@@ -17,10 +17,12 @@ at any time; these rules bind agent-authored tests.
    fixtures in `sources/fixtures/`. A guard test asserts no test constructs a
    live HTTP client. One optional manual-only live script may exist outside the
    test suite.
-2. **Failure behavior is first-class.** Every row of the failure taxonomy
-   (no hit / rate limited / timeout / offline / restricted / contradictory) has
-   a test asserting the recorded outcome and that `no hit` never produces an
-   "untested/novel" claim.
+2. **Failure behavior is first-class.** Every failure-taxonomy row applicable
+   to the selected route (no hit / rate limited / timeout / offline /
+   bad response / bad input) has a test asserting the recorded outcome, and
+   `no hit` never produces an "untested/novel" claim. Reserved vocabulary not
+   yet reachable (e.g. `restricted`, `manual_capture`) is documented where
+   defined and gains tests when its feature lands.
 3. **Persistence is proven by restart.** The restart pattern — open connection,
    write, close, reopen, assert — is mandatory for anything claimed durable,
    including corrections.
