@@ -61,7 +61,8 @@ def run(db_path: Path) -> None:
                          ("Press-P (synthetic)", "unavailable"),
                          ("Rotating electrode (synthetic)", "unknown")]:
         caps[name] = add_capability(conn, name, None, status).id
-    check("S2 profile statuses", "four statuses stored verbatim",
+    check("S2 profile statuses", "four capability entries recorded (verbatim storage "
+          "grounded in test_labprofile_domain)",
           len(caps) == 4)
 
     # S3 — reference capture + typed route failure (offline fixture)
@@ -185,9 +186,10 @@ def run(db_path: Path) -> None:
     conn.close()
     reopened = connect(db_path)
     q2 = get_question(reopened)
-    check("S10 restart persistence",
-          "question, references, assertions, samples, relations, attempts, "
-          "fit assessments all inspectable after full close/reopen",
+    check("S9 restart persistence",
+          "question wording, route attempts, candidate-card chain, and relations "
+          "inspectable after full close/reopen (profile/conflict/fit restarts "
+          "grounded in their test modules)",
           q2.wording.startswith("Which conductive MOFs")
           and len(list_attempts(reopened)) == 2
           and get_candidate_card(reopened, s_comp.id).observations
@@ -232,8 +234,9 @@ def main() -> int:
     lines = [
         "# Acceptance run 001 — complete first evidence workflow (issue #13)",
         "",
-        "**Date:** 2026-10-02 · **Project version:** 0.1.0 (main, task-013) · "
-        "**Question:** owner-entered bifunctional HER+OER wording (question id 1) · "
+        "**Date:** 2026-10-02 (generation date) · **Project version:** 0.1.0 (branch task-013) · "
+        "**Question:** the production question (owner-entered, data/platform.db id 1) is "
+        "the context; this fixture run uses a shortened synthetic variant · "
         "**Source contract:** D2 (Crossref metadata + manual entry; no full text) · "
         "**Stack:** D3 (Python/Streamlit/SQLite) · **Review rule:** D4 (named human + "
         "exact cited location + reason) · **Equivalence:** D5 (no cross-source "
@@ -260,6 +263,11 @@ def main() -> int:
         "",
         f"**Overall: {'ALL CHECKS PASS' if not failed else 'FAILURES PRESENT'}** "
         f"({len(RESULTS) - len(failed)}/{len(RESULTS)} steps).",
+        "",
+        "**Per-step Expected texts state the contract behavior; where a step's "
+        "inline check is narrower, the clause is grounded in the named test "
+        "modules (test_labprofile_domain, test_identity_domain, test_review, "
+        "test_labfit, test_route_failures).**",
     ]
     output = "\n".join(lines) + "\n"
     args = sys.argv[1:]

@@ -18,5 +18,5 @@ def test_acceptance_workflow_all_steps_pass():
     )
     assert result.returncode == 0, f"acceptance run failed:\n{result.stdout}\n{result.stderr}"
     assert "ALL CHECKS PASS" in result.stdout
-    for step in ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S10"):
+    for step in ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9"):
         assert f"| {step} " in result.stdout, f"missing step {step}"
