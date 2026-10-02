@@ -273,8 +273,8 @@ def main() -> int:
          "only. It makes no claim of catalyst validation, novelty, synthesis "
          "success, or measured research benefit."),
         "",
-        f"**Overall: {'ALL CHECKS PASS' if not failed else 'FAILURES PRESENT'}** "
-        f"({len(RESULTS) - len(failed)}/{len(RESULTS)} steps).",
+        (f"**Overall: {'ALL CHECKS PASS' if not failed else 'FAILURES PRESENT'}** "
+         f"({len(RESULTS) - len(failed)}/{len(RESULTS)} steps)."),
         "",
         ("**Per-step Expected texts state the contract behavior; where a step's "
          "inline check is narrower, the clause is grounded in the named test "
