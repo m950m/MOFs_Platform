@@ -164,3 +164,24 @@ def test_unsaved_add_is_not_persisted(run_app, db_path):
     at2 = run_app()
     assert "Typed but never saved" not in all_text(at2)
     assert list_capabilities(connect(db_path)) == []
+
+
+def test_correction_save_exits_edit_mode(run_app, db_path):
+    """Guided session 001: saving a correction exits edit mode and the form
+    returns to 'Add capability' with cleared fields (clear_on_submit)."""
+    at = run_app()
+    _open_lab_page(at)
+    by_key(at.text_input, "cap_name").set_value("Furnace (synthetic)")
+    by_key(at.button, "save_capability").click()
+    at.run()
+    _button(at, "Correct:").click()
+    at.run()
+    assert any("Correcting entry" in w.value for w in at.warning)
+    by_key(at.text_input, "cap_name").set_value("Furnace corrected (synthetic)")
+    by_key(at.button, "save_capability").click()
+    at.run()
+    text = all_text(at)
+    assert "Correction saved" in text
+    assert "Correcting entry" not in text
+    caps = list_capabilities(connect(db_path))
+    assert len(caps) == 1 and caps[0].name == "Furnace corrected (synthetic)"

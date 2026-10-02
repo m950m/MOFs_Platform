@@ -147,3 +147,19 @@ def test_composite_lineage_recorded_via_ui(app_with_reference, db_path):
     assert "derived" not in text.replace("derived/composite", "")  # no derivation claim
     relations = list_relations(connect(db_path))
     assert any(r["relation"] == "composite" for r in relations)
+
+
+def test_targeting_pickers_survive_sample_save(app_with_reference, db_path):
+    """Guided session 001: source/sample pickers live outside the forms so
+    they survive saves — consecutive entries must not silently re-target."""
+    at = app_with_reference
+    at.sidebar.radio[0].set_value("Samples & identity")
+    at.run()
+    by_key(at.selectbox, "smp_source").set_value(2)  # default (newest first)
+    by_key(at.text_input, "smp_designation").set_value("Survival check (synthetic)")
+    by_key(at.button, "save_sample").click()
+    at.run()
+    assert at.session_state["smp_source"] == 2  # picker kept its selection
+    samples = list_samples(connect(db_path))
+    assert len(samples) == 1 and samples[0].source_id == 2
+    assert not at.exception

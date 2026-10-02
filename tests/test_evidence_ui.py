@@ -139,3 +139,20 @@ def test_blank_claim_shows_validation(app_with_reference, db_path):
     at.run()
     assert at.error and "empty" in at.error[0].value.lower()
     assert list_assertions(connect(db_path)) == []
+
+
+def test_source_picker_survives_save(app_with_reference, db_path):
+    """Guided session 001: the reference picker lives outside the form so it
+    survives saves — consecutive assertions must not silently re-target."""
+    at = app_with_reference
+    _open_evidence_page(at)
+    by_key(at.text_area, "asm_claim_text").set_value("First claim (synthetic)")
+    by_key(at.button, "save_assertion").click()
+    at.run()
+    assert at.session_state["asm_source"] == 1
+    by_key(at.text_area, "asm_claim_text").set_value("Second claim (synthetic)")
+    by_key(at.button, "save_assertion").click()
+    at.run()
+    assertions = list_assertions(connect(db_path))
+    assert [a.source_id for a in assertions] == [1, 1]
+    assert not at.exception

@@ -105,6 +105,27 @@ def test_enrich_no_hit_shows_honest_warning_not_novelty_claim(app_with_question,
     assert "does NOT mean the material is unstudied" in at.warning[0].value
 
 
+def test_successful_capture_survives_rerun_without_duplicate(app_with_question, db_path):
+    """Guided session 001: post-submit reset is Streamlit's native
+    clear_on_submit, never a manual session_state write for form widgets —
+    manual writes raise StreamlitWidgetAlreadyInstantiatedError in the real
+    browser. AppTest reproduces neither the crash nor the native clear, so
+    this test pins what it can see: no exception, and reruns do not re-fire
+    the capture."""
+    at = app_with_question
+    _open_sources_page(at)
+    by_key(at.text_input, "ref_doi").set_value("10.9999/clears-after-save")
+    by_key(at.button, "save_reference").click()
+    at.run()
+    assert any("Reference captured (lead)" in s.value for s in at.success)
+    assert not at.exception
+    at.run()
+    at.run()
+    assert not at.exception
+    refs = list_references(connect(db_path))
+    assert len(refs) == 1 and refs[0].doi == "10.9999/clears-after-save"
+
+
 def test_restart_shows_saved_references_with_provenance(app_with_question, run_app, db_path):
     at = app_with_question
     _open_sources_page(at)

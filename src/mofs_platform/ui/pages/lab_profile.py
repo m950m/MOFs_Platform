@@ -31,15 +31,24 @@ _STATUS_MARKERS = {
     "unknown": "`unknown` — not yet confirmed",
 }
 
-_WIDGET_DEFAULTS = {"cap_name": "", "cap_desc": "", "cap_status": "unknown"}
-
-
 def _apply_requests() -> None:
-    """Apply queued mode changes before the form widgets are instantiated."""
+    """Apply queued mode changes before the form widgets are instantiated.
+
+    After a form submit only non-widget state may be written — widget-key
+    writes raise StreamlitWidgetAlreadyInstantiatedError in the real browser
+    (guided session 001) — so success paths queue `exit_edit_request`, while
+    the Cancel button (no form submit in flight) queues `reset_request`,
+    which may also clear the fields. Field clearing on submit itself is
+    st.form(clear_on_submit=True)."""
+    if "exit_edit_request" in st.session_state:
+        st.session_state.pop("exit_edit_request", None)
+        st.session_state.pop("editing", None)
     if "reset_request" in st.session_state:
         st.session_state.pop("reset_request", None)
         st.session_state.pop("editing", None)
-        st.session_state.update(_WIDGET_DEFAULTS)
+        st.session_state["cap_name"] = ""
+        st.session_state["cap_desc"] = ""
+        st.session_state["cap_status"] = "unknown"
     if "edit_request" in st.session_state:
         request = st.session_state.pop("edit_request")
         st.session_state["editing"] = {"id": request["id"], "name": request["name"]}
@@ -82,7 +91,7 @@ def render_lab_profile_page(conn) -> None:
     if editing:
         st.warning(f"Correcting entry #{editing['id']}: {editing['name']}")
 
-    with st.form("capability_form"):
+    with st.form("capability_form", clear_on_submit=True):
         st.text_input("Capability name", key="cap_name")
         st.text_area("Description / notes (optional)", key="cap_desc")
         st.radio(
@@ -109,7 +118,7 @@ def render_lab_profile_page(conn) -> None:
             else:
                 added = add_capability(conn, name, desc, status)
                 st.session_state["flash"] = f"Capability added: {added.name}."
-            st.session_state["reset_request"] = True
+            st.session_state["exit_edit_request"] = True
             st.rerun()  # success path only — errors stay visible on this render
         except LabProfileValidationError as exc:
             st.error(str(exc))

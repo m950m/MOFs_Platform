@@ -24,42 +24,12 @@ from mofs_platform.domain.references import list_references
 
 SAMPLES_PAGE_TITLE = "Samples & identity"
 
-_WIDGET_DEFAULTS = {
-    "smp_designation": "",
-    "smp_parent": "",
-    "smp_linker": "",
-    "smp_metal": "",
-    "smp_composition": "",
-    "smp_additions": "",
-    "smp_structure": "",
-    "smp_activation": "",
-    "smp_basis": "experimental",
-    "smp_lineage_kind": "composite",
-    "obs_sample": None,
-    "obs_kind": "experimental",
-    "obs_value": "",
-    "obs_unit": "",
-    "obs_reaction": "unknown",
-    "obs_medium": "",
-    "obs_ref_conv": "",
-    "obs_loading": "",
-    "obs_duration": "",
-    "obs_protocol": "",
-    "obs_location": "",
-}
-
-
-def _apply_reset_request() -> None:
-    if st.session_state.pop("smp_reset_request", False):
-        st.session_state.update(_WIDGET_DEFAULTS)
-
 
 def render_samples_page(conn) -> None:
     st.header(SAMPLES_PAGE_TITLE)
     flash = st.session_state.pop("flash", None)
     if flash:
         st.success(flash)
-    _apply_reset_request()
 
     references = list_references(conn)
     if not references:
@@ -108,9 +78,11 @@ def render_samples_page(conn) -> None:
         st.info("No samples recorded yet. Record one below (per source).")
 
     st.subheader("Record a reported sample")
-    with st.form("sample_form"):
-        st.selectbox("Source", list(ref_options), key="smp_source",
-                     format_func=lambda k: ref_options[k])
+    # Targeting pickers stay OUTSIDE the forms: they must survive saves so
+    # consecutive entries do not silently re-target another source or sample.
+    st.selectbox("Source", list(ref_options), key="smp_source",
+                 format_func=lambda k: ref_options[k])
+    with st.form("sample_form", clear_on_submit=True):
         st.text_input("Designation (reported name)", key="smp_designation")
         c1, c2 = st.columns(2)
         with c1:
@@ -154,7 +126,6 @@ def render_samples_page(conn) -> None:
                 basis=st.session_state.get("smp_basis"),
             )
             st.session_state["flash"] = f"Sample recorded: #{s.id} {s.designation}."
-            st.session_state["smp_reset_request"] = True
             st.rerun()
         except IdentityValidationError as exc:
             st.error(str(exc))
@@ -162,11 +133,11 @@ def render_samples_page(conn) -> None:
             st.error(str(exc))
 
     st.subheader("Record an observation (attaches to a sample only)")
-    with st.form("observation_form"):
-        st.selectbox("Sample", list(sample_options), key="obs_sample",
-                     format_func=lambda k: sample_options[k])
-        st.selectbox("Source it was read from", list(ref_options), key="obs_source",
-                     format_func=lambda k: ref_options[k])
+    st.selectbox("Sample", list(sample_options), key="obs_sample",
+                 format_func=lambda k: sample_options[k])
+    st.selectbox("Source it was read from", list(ref_options), key="obs_source",
+                 format_func=lambda k: ref_options[k])
+    with st.form("observation_form", clear_on_submit=True):
         st.selectbox("Kind", list(OBSERVATION_KINDS), key="obs_kind")
         c1, c2 = st.columns(2)
         with c1:
@@ -202,7 +173,6 @@ def render_samples_page(conn) -> None:
                 evidence_location=st.session_state.get("obs_location"),
             )
             st.session_state["flash"] = f"Observation #{ob.id} recorded on sample #{ob.sample_id}."
-            st.session_state["smp_reset_request"] = True
             st.rerun()
         except IdentityValidationError as exc:
             st.error(str(exc))

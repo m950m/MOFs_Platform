@@ -26,23 +26,7 @@ from mofs_platform.ui._widgets import esc
 
 SOURCES_PAGE_TITLE = "Sources"
 
-_WIDGET_DEFAULTS = {
-    "ref_doi": "",
-    "ref_url": "",
-    "ref_title": "",
-    "ref_passage": "",
-    "ref_contributor": "Mohammed (owner)",
-    "ref_level": "unknown",
-    "ref_rights": "",
-}
-
-
-def _apply_reset_request() -> None:
-    """Widget keys may only be written before the widgets are instantiated."""
-    if "ref_contributor" not in st.session_state:  # first-visit attribution default
-        st.session_state["ref_contributor"] = "Mohammed (owner)"
-    if st.session_state.pop("ref_reset_request", False):
-        st.session_state.update(_WIDGET_DEFAULTS)
+_OWNER_DEFAULT_CONTRIBUTOR = "Mohammed (owner)"
 
 
 _FAILURE_MESSAGES = {
@@ -63,7 +47,6 @@ def render_sources_page(conn) -> None:
     flash = st.session_state.pop("flash", None)
     if flash:
         st.success(flash)
-    _apply_reset_request()
 
     question = get_question(conn)
     if question is None:
@@ -122,7 +105,10 @@ def render_sources_page(conn) -> None:
         st.info("No references captured yet. Add one below (manual attribution is enough).")
 
     st.subheader("Capture a reference (manual, attributed)")
-    with st.form("reference_form"):
+    # clear_on_submit resets the fields natively; manually resetting form-widget
+    # session_state keys after a submit crashes the real browser (guided
+    # session 001), even though AppTest does not reproduce it.
+    with st.form("reference_form", clear_on_submit=True):
         st.text_input("DOI (optional)", key="ref_doi", placeholder="e.g. 10.1016/j.matt.2021.02.015")
         st.text_input("URL (optional)", key="ref_url")
         st.text_area("Title / citation (optional)", key="ref_title", height=70)
@@ -133,7 +119,9 @@ def render_sources_page(conn) -> None:
         )
         col_a, col_b = st.columns(2)
         with col_a:
-            st.text_input("Contributor", key="ref_contributor")
+            st.text_input(
+                "Contributor", value=_OWNER_DEFAULT_CONTRIBUTOR, key="ref_contributor"
+            )
             st.selectbox(
                 "What was actually inspected?",
                 list(INSPECTED_LEVELS),
@@ -164,7 +152,6 @@ def render_sources_page(conn) -> None:
                 f"Reference captured (lead): {esc(ref.title or ref.doi or ref.url)}."
                 + (f" — {warning}" if warning else "")
             )
-            st.session_state["ref_reset_request"] = True
             st.rerun()  # success path only — errors stay visible on this render
         except ReferenceValidationError as exc:
             st.error(str(exc))

@@ -24,24 +24,7 @@ from mofs_platform.ui._widgets import esc
 
 EVIDENCE_PAGE_TITLE = "Evidence"
 
-_WIDGET_DEFAULTS = {
-    # NOTE: asm_source is deliberately NOT reset — the selected reference must
-    # survive a save so consecutive records do not silently fail validation.
-    "asm_claim_type": "preparation",
-    "asm_claim_text": "",
-    "asm_location": "",
-    "asm_author": "Mohammed (owner)",
-    "asm_epistemic": "unknown",
-    "asm_conflicts_with": None,
-}
-
-
-def _apply_reset_request() -> None:
-    """Widget keys may only be written before the widgets are instantiated."""
-    if "asm_author" not in st.session_state:  # first-visit attribution default
-        st.session_state["asm_author"] = "Mohammed (owner)"
-    if st.session_state.pop("asm_reset_request", False):
-        st.session_state.update(_WIDGET_DEFAULTS)
+_OWNER_DEFAULT_AUTHOR = "Mohammed (owner)"
 
 
 def render_evidence_page(conn) -> None:
@@ -49,7 +32,6 @@ def render_evidence_page(conn) -> None:
     flash = st.session_state.pop("flash", None)
     if flash:
         st.success(flash)
-    _apply_reset_request()
 
     references = list_references(conn)
     if not references:
@@ -100,8 +82,15 @@ def render_evidence_page(conn) -> None:
     pair_options.update(
         {a.id: f"#{a.id} [{a.claim_type}] {a.claim_text[:60]}" for a in assertions}
     )
-    with st.form("assertion_form"):
-        st.selectbox("Reference (source)", list(source_options), format_func=lambda k: source_options[k], key="asm_source")
+    # The reference picker lives OUTSIDE the form on purpose: it must survive
+    # saves so consecutive assertions do not silently re-target another source.
+    st.selectbox(
+        "Reference (source)",
+        list(source_options),
+        format_func=lambda k: source_options[k],
+        key="asm_source",
+    )
+    with st.form("assertion_form", clear_on_submit=True):
         st.selectbox("Claim type", list(CLAIM_TYPES), key="asm_claim_type")
         st.text_area(
             "Claim / value exactly as reported or judged",
@@ -114,10 +103,15 @@ def render_evidence_page(conn) -> None:
             key="asm_location",
             placeholder="e.g. Methods §2, fig. 3, table S1 — leave blank for unknown",
         )
-        st.text_input("Extracted by (author or method)", key="asm_author")
+        st.text_input(
+            "Extracted by (author or method)",
+            value=_OWNER_DEFAULT_AUTHOR,
+            key="asm_author",
+        )
         st.selectbox(
             "Epistemic type",
             list(EPISTEMIC_TYPES),
+            index=EPISTEMIC_TYPES.index("unknown"),
             key="asm_epistemic",
             format_func=lambda et: EPISTEMIC_LABELS[et],
         )
@@ -142,7 +136,6 @@ def render_evidence_page(conn) -> None:
                 conflicts_with=st.session_state.get("asm_conflicts_with"),
             )
             st.session_state["flash"] = f"Assertion #{asm.id} recorded (`needs_verification`)."
-            st.session_state["asm_reset_request"] = True
             st.rerun()  # success path only — errors stay visible on this render
         except EvidenceValidationError as exc:
             st.error(str(exc))

@@ -21,24 +21,7 @@ from mofs_platform.ui._widgets import esc
 
 REVIEW_PAGE_TITLE = "Review"
 
-_WIDGET_DEFAULTS = {
-    "rev_editor": "Mohammed (owner)",
-    "rev_reason": "",
-    "rev_claim_text": "",
-    "rev_location": "",
-    "rev_reviewer": "Mohammed (owner)",
-    "rev_support": "",
-    "rev_rel_location": "",
-}
-
-
-def _apply_reset_request() -> None:
-    if "rev_editor" not in st.session_state:  # first-visit default
-        st.session_state["rev_editor"] = "Mohammed (owner)"
-    if "rev_reviewer" not in st.session_state:
-        st.session_state["rev_reviewer"] = "Mohammed (owner)"
-    if st.session_state.pop("rev_reset_request", False):
-        st.session_state.update(_WIDGET_DEFAULTS)
+_OWNER_DEFAULT_REVIEWER = "Mohammed (owner)"
 
 
 def render_review_page(conn) -> None:
@@ -46,7 +29,6 @@ def render_review_page(conn) -> None:
     flash = st.session_state.pop("flash", None)
     if flash:
         st.success(flash)
-    _apply_reset_request()
 
     assertions = list_assertions(conn)
     relations = list_relations(conn)
@@ -61,12 +43,15 @@ def render_review_page(conn) -> None:
         a.id: f"#{a.id} [{a.claim_type}] {a.claim_text[:60]}" for a in assertions
     }
     if asm_options:
-        with st.form("correct_assertion_form"):
-            st.selectbox("Assertion", list(asm_options), key="rev_asm",
-                         format_func=lambda k: asm_options[k])
+        # Target pickers stay OUTSIDE the forms so the corrected/reviewed
+        # target survives an action (correct now, review next — same target).
+        st.selectbox("Assertion", list(asm_options), key="rev_asm",
+                     format_func=lambda k: asm_options[k])
+        with st.form("correct_assertion_form", clear_on_submit=True):
             st.text_area("Corrected claim text", key="rev_claim_text", height=70)
             st.text_input("Corrected evidence location", key="rev_location")
-            st.text_input("Editor (who is correcting)", key="rev_editor")
+            st.text_input("Editor (who is correcting)",
+                          value=_OWNER_DEFAULT_REVIEWER, key="rev_editor")
             st.text_area("Reason for the correction (required)", key="rev_reason", height=60)
             st.form_submit_button("Save correction", key="save_correction", type="primary")
         if st.session_state.get("save_correction"):
@@ -83,17 +68,16 @@ def render_review_page(conn) -> None:
                 st.session_state["flash"] = (
                     f"Assertion #{result['id']} corrected (old → new kept in history).{note}"
                 )
-                st.session_state["rev_reset_request"] = True
                 st.rerun()
             except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
 
     st.subheader("Review an assertion (D4 threshold)")
     if asm_options:
-        with st.form("review_assertion_form"):
-            st.selectbox("Assertion", list(asm_options), key="rev_review_asm",
-                         format_func=lambda k: asm_options[k])
-            st.text_input("Reviewer", key="rev_reviewer")
+        st.selectbox("Assertion", list(asm_options), key="rev_review_asm",
+                     format_func=lambda k: asm_options[k])
+        with st.form("review_assertion_form", clear_on_submit=True):
+            st.text_input("Reviewer", value=_OWNER_DEFAULT_REVIEWER, key="rev_reviewer")
             st.text_input("Supporting source location (exact)", key="rev_support",
                           placeholder="e.g. Methods §2 — you inspected this exact location")
             st.text_area("Reason: how it meets the D4 threshold (required)",
@@ -111,7 +95,6 @@ def render_review_page(conn) -> None:
                     f"Assertion #{result['id']} marked `reviewed` by "
                     f"{result['reviewer']} (D4 recorded)."
                 )
-                st.session_state["rev_reset_request"] = True
                 st.rerun()
             except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
@@ -123,10 +106,10 @@ def render_review_page(conn) -> None:
             a.id: f"#{a.id} {a.claim_text[:60]} ↔ pair #{a.conflicts_with}"
             for a in conflicted
         }
-        with st.form("resolve_form"):
-            st.selectbox("Conflicted assertion", list(pair_options), key="res_asm",
-                         format_func=lambda k: pair_options[k])
-            st.text_input("Resolver", key="res_resolver")
+        st.selectbox("Conflicted assertion", list(pair_options), key="res_asm",
+                     format_func=lambda k: pair_options[k])
+        with st.form("resolve_form", clear_on_submit=True):
+            st.text_input("Resolver", value=_OWNER_DEFAULT_REVIEWER, key="res_resolver")
             st.text_area(
                 "Resolution reason (required) — e.g. the pair was a double entry, "
                 "or one side was corrected and no longer conflicts",
@@ -144,7 +127,6 @@ def render_review_page(conn) -> None:
                     f"Conflict resolved: assertions {result['resolved']} returned to "
                     "`needs_verification` (re-review required)."
                 )
-                st.session_state["rev_reset_request"] = True
                 st.rerun()
             except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
@@ -155,11 +137,12 @@ def render_review_page(conn) -> None:
             r["id"]: f"#{r['left']} ↔ #{r['right']}: {r['relation']} ({r['level']})"
             for r in relations
         }
-        with st.form("relation_form"):
-            st.selectbox("Relation", list(rel_options), key="rev_rel",
-                         format_func=lambda k: rel_options[k])
+        st.selectbox("Relation", list(rel_options), key="rev_rel",
+                     format_func=lambda k: rel_options[k])
+        with st.form("relation_form", clear_on_submit=True):
             st.text_input("Corrected evidence location (optional)", key="rev_rel_location")
-            st.text_input("Editor / reviewer", key="rev_rel_editor")
+            st.text_input("Editor / reviewer",
+                          value=_OWNER_DEFAULT_REVIEWER, key="rev_rel_editor")
             st.text_area("Reason (required)", key="rev_rel_reason", height=60)
             st.radio("Action", ["Save correction", "Mark reviewed (D4)"],
                      key="rev_rel_action", horizontal=True)
@@ -187,7 +170,6 @@ def render_review_page(conn) -> None:
                     st.session_state["flash"] = (
                         f"Relation #{result['id']} marked `reviewed` (D4 recorded)."
                     )
-                st.session_state["rev_reset_request"] = True
                 st.rerun()
             except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
