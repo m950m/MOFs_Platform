@@ -84,7 +84,6 @@ def test_compare_shows_relation_with_merge_permission_and_location(
     by_key(at.selectbox, "cmp_a").set_value(1)
     by_key(at.selectbox, "cmp_b").set_value(2)
     by_key(at.text_input, "cmp_location").set_value("Methods §2 (fixture)")
-    at.button  # ensure tree loaded
     matches = [b for b in at.button if getattr(b, "label", "") == "Compare"]
     assert len(matches) == 1
     matches[0].click()
