@@ -96,7 +96,8 @@ def test_conflicting_assertions_individually_accessible_not_averaged(conn_with_f
     assert "180 mV (synthetic)" in texts and "220 mV (synthetic)" in texts
     assert len(card.conflicts) == 2  # both sides flagged
     review_states = {a["review_state"] for a in card.assertions}
-    assert review_states == {"conflicted"}
+    assert "conflicted" in review_states
+    assert "needs_verification" in review_states  # other assertions stay unreviewed
 
 
 def test_get_card_validates_existence(db_path):
