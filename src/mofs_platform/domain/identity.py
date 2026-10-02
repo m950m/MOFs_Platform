@@ -372,9 +372,11 @@ def compare_samples(
             f"Explicitly different linkers: '{a.linker}' vs '{b.linker}' "
             "(generic name similarity is not identity evidence)."
         )
-        out.append(_save_relation(conn, a.id, b.id, "framework", "different", reason, None))
+        out.append(_save_relation(conn, a.id, b.id, "framework", "different", reason,
+                                  evidence_location))
         out.append(_save_relation(conn, a.id, b.id, "sample", "different",
-                                  "Framework differs, so the prepared samples differ.", None))
+                                  "Framework differs, so the prepared samples differ.",
+                                  evidence_location))
         return out
 
     if _differ(a.activation, b.activation):
@@ -388,8 +390,10 @@ def compare_samples(
         )
         if same_cif:
             out.append(_save_relation(conn, a.id, b.id, "framework", "same_parent_framework",
-                                      f"Same referenced structure model '{a.structure_ref}'.", None))
-        out.append(_save_relation(conn, a.id, b.id, "sample", "different", reason, None))
+                                      f"Same referenced structure model '{a.structure_ref}'.",
+                                      evidence_location))
+        out.append(_save_relation(conn, a.id, b.id, "sample", "different", reason,
+                                  evidence_location))
         return out
 
     if same_source and _same(a.designation, b.designation):

@@ -50,6 +50,15 @@ def test_case1_same_name_different_linker_is_different(conn):
     assert all(r["merge_permission"] == "none" for r in rels)
 
 
+def test_different_linker_comparison_persists_supplied_evidence_location(conn):
+    s1 = _source(conn, "10.9999/loc-a", "Fixture paper loc A")
+    s2 = _source(conn, "10.9999/loc-b", "Fixture paper loc B")
+    a = record_sample(conn, source_id=s1, designation="Framework-F", linker="Linker-L")
+    b = record_sample(conn, source_id=s2, designation="Framework-F", linker="Linker-M")
+    rels = compare_samples(conn, a.id, b.id, evidence_location="Methods \u00a72 (fixture)")
+    assert all(r["evidence_location"] == "Methods \u00a72 (fixture)" for r in rels), rels
+
+
 # ---- Case 2: nanoparticle addition -> composite, observations stay -----------
 
 def test_case2_nanoparticle_addition_is_composite_not_derived(conn):
