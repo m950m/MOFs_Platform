@@ -8,6 +8,10 @@ persists (issue #4: leave-edits-unsaved criterion).
 
 import streamlit as st
 
+from mofs_platform.domain.hints import (
+    HINT_RULES_DOCUMENTATION,
+    question_hints,
+)
 from mofs_platform.domain.questions import (
     Question,
     QuestionPersistenceError,
@@ -49,6 +53,13 @@ def render_question_page(conn) -> None:
     if flash:
         st.success(flash)
     current = get_question(conn)
+    if current is not None:
+        hints = question_hints(current)
+        if hints:
+            st.subheader("Consistency hints (review suggestions — nothing was changed)")
+            for h in hints:
+                st.markdown(f"- [{h['rule']}] {h['message']}")
+            st.caption(HINT_RULES_DOCUMENTATION)
     if current is None:
         st.info(
             "No research question saved yet. Enter it below — blank wording "
