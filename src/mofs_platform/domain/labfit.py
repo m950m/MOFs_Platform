@@ -41,20 +41,24 @@ class FitAssessment:
 
 
 def _basis_stamps(conn: sqlite3.Connection, source_id: int) -> dict:
-    question = conn.execute(
-        "SELECT updated_at FROM question WHERE id = 1"
-    ).fetchone()
+    """Content digests of the assessment inputs. Second-granularity timestamps
+    cannot detect same-second edits, so staleness is detected by CONTENT —
+    a status/text change always marks older assessments outdated."""
+    question = conn.execute("SELECT text FROM question WHERE id = 1").fetchone()
     caps = conn.execute(
-        "SELECT COALESCE(MAX(updated_at), 'none') AS m FROM lab_capability"
+        "SELECT COALESCE(GROUP_CONCAT(digest), 'none') AS m FROM "
+        "(SELECT name || ':' || status AS digest FROM lab_capability ORDER BY id)"
     ).fetchone()
     asserts = conn.execute(
-        "SELECT COALESCE(MAX(created_at), 'none') AS m FROM assertion WHERE source_id = ?",
+        "SELECT COALESCE(GROUP_CONCAT(digest), 'none') AS m FROM "
+        "(SELECT claim_text || ':' || review_state AS digest FROM assertion "
+        "WHERE source_id = ? ORDER BY id)",
         (source_id,),
     ).fetchone()
     return {
-        "question_updated_at": question["updated_at"] if question else "none",
-        "capabilities_updated_at": caps["m"],
-        "assertions_updated_at": asserts["m"],
+        "question_text": question["text"] if question else "none",
+        "capabilities_digest": caps["m"],
+        "assertions_digest": asserts["m"],
     }
 
 
