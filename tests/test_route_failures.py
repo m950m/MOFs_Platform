@@ -33,7 +33,8 @@ def test_every_failure_kind_records_outcome_and_next_step(conn_with_ref, monkeyp
     conn, ref_id = conn_with_ref
     for kind in ("no_hit", "rate_limited", "timeout", "offline", "bad_response"):
         monkeypatch.setattr(
-            "mofs_platform.sources.crossref.fetch_metadata", lambda *a, **k: _fail(kind)
+            "mofs_platform.sources.crossref.fetch_metadata",
+            lambda *a, __kind=kind, **k: _fail(__kind),
         )
         updated, failure = enrich_with_crossref(conn, ref_id, "owner@example.com")
         assert updated is None and failure.kind == kind
@@ -65,38 +66,26 @@ def test_failed_attempt_then_success_stays_distinct(conn_with_ref, monkeypatch):
     assert count_attempts(conn, outcome="timeout") == 1  # the failure was not relabeled
 
 
-def test_failed_enrichment_changes_neither_reference_nor_counts(conn_with_ref):
-    conn, ref_id = conn_with_ref
-    before = get_reference(conn, ref_id)
-    monkeypatch_fail = _fail("offline")
-    conn2 = conn
+def test_unknown_attempt_outcome_rejected(conn_with_ref):
     from mofs_platform.domain import attempts as attempts_log
 
-    # direct domain call with a failing adapter via monkeypatch in UI tests;
-    # here verify via recorded attempt API that invalid input is typed:
     with pytest.raises(ValueError):
-        attempts_log.record_attempt(conn2, provider="crossref", target="x",
-                                    attempt_kind="crossref_enrichment",
-                                    outcome="not_a_kind")
+        attempts_log.record_attempt(
+            conn_with_ref[0], provider="crossref", target="x",
+            attempt_kind="crossref_enrichment", outcome="not_a_kind",
+        )
 
 
 def test_invalid_route_input_typed_without_damaging_records(conn_with_ref):
     conn, ref_id = conn_with_ref
-    monkeypatch_target = "mofs_platform.sources.crossref.fetch_metadata"
-    import mofs_platform.sources.crossref as cr
-
-    original = cr.fetch_metadata
-    try:
-        result = crossref.fetch_metadata("   ", "owner@example.com")
-        assert result.kind == "bad_input"  # specific validation outcome
-    finally:
-        cr.fetch_metadata = original
+    result = crossref.fetch_metadata("   ", "owner@example.com")
+    assert result.kind == "bad_input"  # specific validation outcome
     saved = get_reference(conn, ref_id)
     assert saved.doi == "10.9999/route"  # existing records undamaged
 
 
 def test_missing_scientific_fields_stay_recordable_with_unknowns(conn_with_ref):
-    conn, ref_id = conn_with_ref
+    conn, _ref_id = conn_with_ref
     # A valid reference with missing fields is recordable (not rejected as malformed):
     partial = add_manual_reference(conn, title="Partial citation only")
     assert partial.doi is None and partial.url is None  # explicit unknowns kept
@@ -141,4 +130,4 @@ def test_manual_route_has_no_network_failures_documented():
     from pathlib import Path
     src = Path("src/mofs_platform/domain/references.py").read_text(encoding="utf-8")
     assert "httpx" not in src  # the manual/reference domain never touches HTTP
-    assert set(("no_hit", "rate_limited", "timeout", "offline")) & set(NEXT_STEPS)  # taxonomy exists for the network route only
+    assert {"no_hit", "rate_limited", "timeout", "offline"} & set(NEXT_STEPS)  # taxonomy exists for the network route only
