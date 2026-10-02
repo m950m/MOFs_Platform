@@ -159,3 +159,33 @@ def test_r1_english_pronoun_her_never_fires():
     hints = question_hints(_q(wording="Summarize what her experiments showed.",
                               reactions="HER"))
     assert not [h for h in hints if h["rule"] == "R1"]
+
+
+def test_ui_renders_hints_and_rules_caption(run_app, db_path):
+    from conftest import all_text
+
+    conn = connect(db_path)
+    save_question(conn, _q(wording="HER and OER question (synthetic)",
+                           reactions="HER"))
+    conn.close()
+    at = run_app()
+    at.sidebar.radio[0].set_value("Research question")
+    at.run()
+    text = all_text(at)
+    assert "Consistency hints" in text
+    assert "[R1]" in text
+    assert "Hint rules (deterministic keywords" in text  # rules visible to researcher
+
+
+def test_ui_consistent_question_shows_no_hint_section(run_app, db_path):
+    from conftest import all_text
+
+    conn = connect(db_path)
+    save_question(conn, _q(wording="Bifunctional HER and OER screening of MOFs",
+                           reactions="HER, OER", material_classes="MOF"))
+    conn.close()
+    at = run_app()
+    at.sidebar.radio[0].set_value("Research question")
+    at.run()
+    text = all_text(at)
+    assert "Consistency hints" not in text  # fully consistent → no hint section
