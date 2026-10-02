@@ -33,6 +33,7 @@ def test_migrations_are_idempotent(db_path):
         "0007_route_attempts.sql",
         "0008_review.sql",
         "0009_fit_assessment.sql",
+        "0010_sample_correction.sql",
     ]
     second.close()
 

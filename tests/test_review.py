@@ -10,6 +10,7 @@ from mofs_platform.domain.references import add_manual_reference
 from mofs_platform.domain.review import (
     ReviewValidationError,
     correct_assertion,
+    correct_sample,
     list_review_events,
     review_assertion,
     review_identity_relation,
@@ -187,3 +188,170 @@ def test_review_history_survives_restart(db_path):
     assert get_assertion(reopened, asm.id).claim_text == "Corrected (synthetic)"
     assert get_assertion(reopened, asm.id).review_state == "needs_verification"
     reopened.close()
+
+
+# --- sample-record corrections (issue #20) ---------------------------------
+
+
+@pytest.fixture
+def conn_with_sample(db_path):
+    conn = connect(db_path)
+    save_question(conn, Question(wording="Q"))
+    ref = add_manual_reference(conn, doi="10.9999/sample-fix", title="Sample fixture paper")
+    sample = record_sample(
+        conn, source_id=ref.id, designation="CoCoZn(HITP)2 (computational model)",
+        linker="HITP", metal_node="Co, Zn", composition="CoCoZn(HITP)2",
+        basis="experimental",  # the guided-session 001 mistake
+    )
+    return conn, ref.id, sample.id
+
+
+def test_correct_sample_fixes_basis_and_logs_history(conn_with_sample):
+    conn, _ref_id, sample_id = conn_with_sample
+    result = correct_sample(
+        conn, sample_id=sample_id, editor="Mohammed (owner)",
+        reason="dropdown click did not commit — the study is computational",
+        basis="computational",
+    )
+    assert result["changed_fields"] == ["basis"]
+    assert result["original_preserved_in_history"] is True
+    events = list_review_events(conn, "sample_record", sample_id)
+    assert events[0].action == "corrected"
+    assert events[0].reviewer == "Mohammed (owner)"
+    assert '"basis": "experimental"' in events[0].previous_json
+    assert '"basis": "computational"' in events[0].updated_json
+    row = conn.execute("SELECT basis, designation, source_id FROM sample_record WHERE id = ?",
+                       (sample_id,)).fetchone()
+    assert row["basis"] == "computational"
+    assert row["designation"] == "CoCoZn(HITP)2 (computational model)"  # untouched
+    assert row["source_id"] == _ref_id  # provenance immutable
+
+
+def test_correct_sample_requires_editor_and_reason(conn_with_sample):
+    conn, _ref_id, sample_id = conn_with_sample
+    with pytest.raises(ReviewValidationError) as exc:
+        correct_sample(conn, sample_id=sample_id, editor=None, reason=None, basis="computational")
+    assert "editor" in str(exc.value) and "reason" in str(exc.value)
+    events = list_review_events(conn, "sample_record", sample_id)
+    assert events == []
+    row = conn.execute("SELECT basis FROM sample_record WHERE id = ?", (sample_id,)).fetchone()
+    assert row["basis"] == "experimental"  # untouched
+
+
+def test_correct_sample_rejects_no_change(conn_with_sample):
+    conn, _ref_id, sample_id = conn_with_sample
+    with pytest.raises(ReviewValidationError) as exc_nothing:
+        correct_sample(conn, sample_id=sample_id, editor="Mohammed (owner)", reason="typo hunt")
+    assert "nothing to change" in str(exc_nothing.value).lower()
+    with pytest.raises(ReviewValidationError) as exc_same:
+        correct_sample(conn, sample_id=sample_id, editor="Mohammed (owner)", reason="no-op",
+                       linker="HITP")  # equals stored value
+    assert "nothing to change" in str(exc_same.value).lower()
+    assert list_review_events(conn, "sample_record", sample_id) == []
+
+
+def test_correct_sample_rejects_unknown_sample_and_bad_basis(conn_with_sample):
+    conn, _ref_id, _sample_id = conn_with_sample
+    with pytest.raises(ReviewValidationError) as exc_missing:
+        correct_sample(conn, sample_id=999, editor="Mohammed (owner)", reason="x", basis="computational")
+    assert "does not exist" in str(exc_missing.value)
+    with pytest.raises(ReviewValidationError) as exc_basis:
+        correct_sample(conn, sample_id=_sample_id, editor="Mohammed (owner)", reason="x",
+                       basis="simulated")
+    assert "Basis must be one of" in str(exc_basis.value)
+    assert list_review_events(conn, "sample_record", _sample_id) == []
+
+
+def test_correct_sample_lineage_pair_rules(conn_with_sample, db_path):
+    conn, ref_id, sample_id = conn_with_sample
+    other = record_sample(conn, source_id=ref_id, designation="Sibling (synthetic)")
+    with pytest.raises(ReviewValidationError) as exc_half:
+        correct_sample(conn, sample_id=sample_id, editor="Mohammed (owner)", reason="x",
+                       lineage_kind="derived")  # no parent provided, none stored
+    assert "both the kind" in str(exc_half.value)
+    with pytest.raises(ReviewValidationError) as exc_self:
+        correct_sample(conn, sample_id=sample_id, editor="Mohammed (owner)", reason="x",
+                       lineage_kind="derived", derived_from_sample_id=sample_id)
+    assert "derive from itself" in str(exc_self.value)
+    with pytest.raises(ReviewValidationError) as exc_ghost:
+        correct_sample(conn, sample_id=sample_id, editor="Mohammed (owner)", reason="x",
+                       lineage_kind="composite", derived_from_sample_id=4242)
+    assert "#4242 does not exist" in str(exc_ghost.value)
+    result = correct_sample(conn, sample_id=sample_id, editor="Mohammed (owner)", reason="x",
+                            lineage_kind="composite", derived_from_sample_id=other.id)
+    assert sorted(result["changed_fields"]) == ["derived_from_sample_id", "lineage_kind"]
+
+
+def test_migration_0010_preserves_history_and_accepts_sample_events(db_path):
+    """0010 rebuilds review_event with the 'sample_record' entity type; the
+    append-only history must survive the rebuild."""
+    conn = connect(db_path)
+    save_question(conn, Question(wording="Q"))
+    ref = add_manual_reference(conn, doi="10.9999/mig10", title="Migration fixture")
+    asm = record_assertion(conn, source_id=ref.id, claim_type="preparation",
+                           claim_text="Pre-0010 claim", evidence_location="loc")
+    correct_assertion(conn, assertion_id=asm.id, new_claim_text="Post-0010 claim",
+                      new_evidence_location=None, editor="Mohammed (owner)", reason="r")
+    # force a fresh connection through apply_migrations (0010 already applied
+    # at connect); the pre-0010 event must still be readable
+    events_before = list_review_events(conn, "assertion", asm.id)
+    assert events_before and "Pre-0010 claim" in events_before[0].previous_json
+    sample = record_sample(conn, source_id=ref.id, designation="S (synthetic)")
+    correct_sample(conn, sample_id=sample.id, editor="Mohammed (owner)", reason="r",
+                   basis="computational")
+    kinds = {e.entity_type for e in list_review_events(conn)}
+    assert kinds == {"assertion", "sample_record"}
+
+
+def test_migration_0010_survives_preexisting_events(db_path):
+    """QA finding (issue #20): the survival demonstration must stage the real
+    transition — build a pre-0010 database (0001-0009), insert a review_event
+    row, THEN run the 0010 rebuild and assert the row survives intact."""
+    import sqlite3
+
+    from mofs_platform.db.connection import MIGRATIONS_DIR
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    pre = sorted(p for p in MIGRATIONS_DIR.glob("*.sql") if p.name < "0010")
+    assert [p.name for p in pre][-1] == "0009_fit_assessment.sql"
+    for path in pre:
+        conn.executescript(path.read_text(encoding="utf-8"))
+    conn.execute(
+        "INSERT INTO review_event (entity_type, entity_id, action, reviewer, reason, "
+        "updated_json, created_at) VALUES ('assertion', 7, 'corrected', "
+        "'Mohammed (owner)', 'pre-0010 reason', '{}', '2026-01-01 00:00:00')"
+    )
+    conn.commit()
+
+    conn.executescript(
+        (MIGRATIONS_DIR / "0010_sample_correction.sql").read_text(encoding="utf-8")
+    )
+    survived = conn.execute(
+        "SELECT * FROM review_event WHERE entity_id = 7"
+    ).fetchone()
+    assert survived is not None
+    assert survived["action"] == "corrected"
+    assert survived["reviewer"] == "Mohammed (owner)"
+    assert survived["reason"] == "pre-0010 reason"
+    assert survived["created_at"] == "2026-01-01 00:00:00"
+    # the rebuilt table accepts sample_record events and still refuses junk
+    conn.execute(
+        "INSERT INTO review_event (entity_type, entity_id, action, updated_json) "
+        "VALUES ('sample_record', 1, 'corrected', '{}')"
+    )
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO review_event (entity_type, entity_id, action, updated_json) "
+            "VALUES ('nonsense', 1, 'corrected', '{}')"
+        )
+    conn.close()
+
+
+def test_correct_sample_rejects_nonnumeric_parent(conn_with_sample):
+    conn, _ref_id, sample_id = conn_with_sample
+    with pytest.raises(ReviewValidationError) as exc:
+        correct_sample(conn, sample_id=sample_id, editor="Mohammed (owner)", reason="x",
+                       derived_from_sample_id="not-a-number")  # type: ignore[arg-type]
+    assert "must be an integer" in str(exc.value)
+    assert list_review_events(conn, "sample_record", sample_id) == []

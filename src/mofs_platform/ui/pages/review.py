@@ -6,12 +6,13 @@ Design-system rule 6: corrections display old → new with reason.
 import streamlit as st
 
 from mofs_platform.domain.evidence import list_assertions
-from mofs_platform.domain.identity import list_relations
+from mofs_platform.domain.identity import BASIS_KINDS, LINEAGE_KINDS, list_relations, list_samples
 from mofs_platform.domain.review import (
     ReviewPersistenceError,
     ReviewValidationError,
     correct_assertion,
     correct_identity_relation,
+    correct_sample,
     list_review_events,
     resolve_conflict,
     review_assertion,
@@ -32,8 +33,9 @@ def render_review_page(conn) -> None:
 
     assertions = list_assertions(conn)
     relations = list_relations(conn)
+    samples = list_samples(conn)
 
-    if not assertions and not relations:
+    if not assertions and not relations and not samples:
         st.info("Nothing to review yet — record assertions under **Evidence** and "
                 "samples/relations under **Samples & identity**.")
         return
@@ -176,6 +178,80 @@ def render_review_page(conn) -> None:
                 st.rerun()
             except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
+
+    st.subheader("Correct a sample record")
+    if samples:
+        # Issue #20 (guided session 001, G4/G5): sample records now have an
+        # attributed correction path. Blank fields mean "keep" — blanking an
+        # entry to empty is out of scope; source_id is capture provenance and
+        # is not correctable (identity questions belong to the relations).
+        sample_options = {
+            s.id: f"#{s.id} — {s.designation} ({s.basis})" for s in samples
+        }
+        st.selectbox("Sample", list(sample_options), key="rev_sample",
+                     format_func=lambda k: sample_options[k])
+        with st.form("correct_sample_form"):
+            c1, c2 = st.columns(2)
+            with c1:
+                st.text_input("Designation (blank = keep)", key="rc_designation")
+                st.text_input("Parent framework (blank = keep)", key="rc_parent")
+                st.text_input("Linker (blank = keep)", key="rc_linker")
+                st.text_input("Metal node (blank = keep)", key="rc_metal")
+            with c2:
+                st.text_input("Composition (blank = keep)", key="rc_composition")
+                st.text_input("Additions (blank = keep)", key="rc_additions")
+                st.text_input("Structure ref (blank = keep)", key="rc_structure")
+                st.text_input("Activation (blank = keep)", key="rc_activation")
+            c3, c4, c5 = st.columns(3)
+            with c3:
+                st.selectbox("Basis", ["— keep —"] + list(BASIS_KINDS), key="rc_basis")
+            with c4:
+                st.selectbox("Lineage kind", ["— keep —"] + list(LINEAGE_KINDS),
+                             key="rc_lineage")
+            with c5:
+                st.selectbox(
+                    "Derived/composite from sample",
+                    ["— keep —"] + list(sample_options),
+                    key="rc_derived",
+                    format_func=lambda k: sample_options[k] if isinstance(k, int) else k,
+                )
+            st.text_input("Editor (who is correcting)",
+                          value=_OWNER_DEFAULT_REVIEWER, key="rc_editor")
+            st.text_area("Reason for the correction (required)", key="rc_reason", height=60)
+            st.form_submit_button("Save sample correction",
+                                  key="save_sample_correction", type="primary")
+        if st.session_state.get("save_sample_correction"):
+            try:
+                basis_sel = st.session_state.get("rc_basis")
+                lineage_sel = st.session_state.get("rc_lineage")
+                derived_sel = st.session_state.get("rc_derived")
+                result = correct_sample(
+                    conn, sample_id=st.session_state.get("rev_sample"),
+                    editor=st.session_state.get("rc_editor"),
+                    reason=st.session_state.get("rc_reason"),
+                    designation=st.session_state.get("rc_designation"),
+                    parent_framework_name=st.session_state.get("rc_parent"),
+                    linker=st.session_state.get("rc_linker"),
+                    metal_node=st.session_state.get("rc_metal"),
+                    composition=st.session_state.get("rc_composition"),
+                    additions=st.session_state.get("rc_additions"),
+                    structure_ref=st.session_state.get("rc_structure"),
+                    activation=st.session_state.get("rc_activation"),
+                    basis=None if basis_sel == "— keep —" else basis_sel,
+                    lineage_kind=None if lineage_sel == "— keep —" else lineage_sel,
+                    derived_from_sample_id=(
+                        None if derived_sel == "— keep —" else derived_sel
+                    ),
+                )
+                st.session_state["flash"] = (
+                    f"Sample #{result['id']} corrected "
+                    f"({', '.join(result['changed_fields'])}; old → new kept in history)."
+                )
+                st.rerun()
+            except (ReviewValidationError, ReviewPersistenceError) as exc:
+                st.error(str(exc))
+    else:
+        st.caption("No sample records yet — corrections appear here once samples exist.")
 
     st.subheader("Review & correction history")
     events = list_review_events(conn)

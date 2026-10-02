@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from mofs_platform.domain.evidence import _row_to_dict as _assertion_to_dict
 from mofs_platform.domain.evidence import get_assertion
+from mofs_platform.domain.identity import BASIS_KINDS, LINEAGE_KINDS
 
 
 class ReviewValidationError(ValueError):
@@ -237,6 +238,126 @@ def correct_assertion(
         "original_preserved_in_history": True,
     }
     return result
+
+
+def correct_sample(
+    conn: sqlite3.Connection, *, sample_id: int, editor: str | None,
+    reason: str | None, designation: str | None = None,
+    parent_framework_name: str | None = None, linker: str | None = None,
+    metal_node: str | None = None, composition: str | None = None,
+    additions: str | None = None, structure_ref: str | None = None,
+    activation: str | None = None, basis: str | None = None,
+    lineage_kind: str | None = None, derived_from_sample_id: int | None = None,
+) -> dict:
+    """Correct a sample record's entered fields with full attribution
+    (issue #20, guided-session G4/G5).
+
+    Unprovided (None) fields keep their stored values — the UI passes blank
+    inputs as unprovided, so blanking a field to empty is out of scope.
+    `source_id` is capture provenance and is not correctable here; identity
+    questions belong to the relation system. Attached assertions,
+    observations, and their review states are untouched. Every correction
+    appends a review_event with both snapshots — history is never overwritten.
+    """
+    row = conn.execute(
+        "SELECT * FROM sample_record WHERE id = ?", (sample_id,)
+    ).fetchone()
+    if row is None:
+        raise ReviewValidationError(f"Sample #{sample_id} does not exist.")
+    missing = [
+        name for name, value in (("editor (who is correcting)", editor),
+                                 ("reason for the correction", reason))
+        if not _opt(value)
+    ]
+    if missing:
+        raise ReviewValidationError(
+            "Correction rejected — missing: " + "; ".join(missing) + "."
+            " The saved history is untouched."
+        )
+
+    provided: dict = {
+        "designation": _opt(designation),
+        "parent_framework_name": _opt(parent_framework_name),
+        "linker": _opt(linker),
+        "metal_node": _opt(metal_node),
+        "composition": _opt(composition),
+        "additions": _opt(additions),
+        "structure_ref": _opt(structure_ref),
+        "activation": _opt(activation),
+    }
+    clean_basis = basis.strip() if isinstance(basis, str) and basis.strip() else None
+    if clean_basis is not None and clean_basis not in BASIS_KINDS:
+        raise ReviewValidationError(
+            f"Basis must be one of {BASIS_KINDS!r} — got {clean_basis!r}."
+        )
+    provided["basis"] = clean_basis
+    clean_lineage = _opt(lineage_kind)
+    if clean_lineage is not None and clean_lineage not in LINEAGE_KINDS:
+        raise ReviewValidationError(
+            f"Lineage kind must be one of {LINEAGE_KINDS!r} — got {clean_lineage!r}."
+        )
+    provided["lineage_kind"] = clean_lineage
+    try:
+        provided["derived_from_sample_id"] = (
+            int(derived_from_sample_id) if derived_from_sample_id else None
+        )
+    except (TypeError, ValueError):
+        raise ReviewValidationError(
+            f"Parent sample id must be an integer — got {derived_from_sample_id!r}."
+        ) from None
+
+    changes = {
+        name: value for name, value in provided.items()
+        if value is not None and value != row[name]
+    }
+    if not changes:
+        raise ReviewValidationError(
+            "Correction rejected — nothing to change: every provided field "
+            "equals the stored value (blank means keep). The saved history "
+            "is untouched."
+        )
+
+    new_lineage = changes.get("lineage_kind", row["lineage_kind"])
+    new_derived = changes.get("derived_from_sample_id", row["derived_from_sample_id"])
+    if (new_lineage is None) != (new_derived is None):
+        raise ReviewValidationError(
+            "A lineage link needs both the kind (composite/derived) and the "
+            "parent sample — provide both or neither."
+        )
+    if new_derived is not None:
+        if new_derived == sample_id:
+            raise ReviewValidationError("A sample cannot derive from itself.")
+        if conn.execute(
+            "SELECT id FROM sample_record WHERE id = ?", (new_derived,)
+        ).fetchone() is None:
+            raise ReviewValidationError(
+                f"Parent sample #{new_derived} does not exist."
+            )
+
+    previous = dict(row)
+    updated = {**previous, **changes}
+    set_clause = ", ".join(f"{name} = ?" for name in changes)
+    try:
+        with conn:
+            conn.execute(
+                f"UPDATE sample_record SET {set_clause} WHERE id = ?",
+                (*changes.values(), sample_id),
+            )
+            _review_event(
+                conn, entity_type="sample_record", entity_id=sample_id,
+                action="corrected", reviewer=_opt(editor), reason=_opt(reason),
+                supporting_location=None, threshold_note=None,
+                previous=previous, updated=updated,
+            )
+    except sqlite3.Error as exc:
+        raise ReviewPersistenceError(
+            f"Saving failed; previously saved records are unchanged. ({exc})"
+        ) from exc
+    return {
+        "id": sample_id,
+        "changed_fields": sorted(changes),
+        "original_preserved_in_history": True,
+    }
 
 
 def _assertion_row(conn: sqlite3.Connection, assertion_id: int) -> sqlite3.Row:
