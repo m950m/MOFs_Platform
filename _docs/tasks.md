@@ -28,7 +28,7 @@ Tasks 004–013 are sequential: each waits for the preceding task to be Done and
 | 008 | [#8 — Link tested samples and observations without false merges](https://github.com/m950m/MOFs_Platform/issues/8) | Done — closed as completed |
 | 009 | [#9 — Handle the selected source route's failures](https://github.com/m950m/MOFs_Platform/issues/9) | Done — closed as completed |
 | 010 | [#10 — Inspect candidates and their source trail](https://github.com/m950m/MOFs_Platform/issues/10) | Done — closed as completed |
-| 011 | [#11 — Correct and review individual assertions](https://github.com/m950m/MOFs_Platform/issues/11) | Blocked — open |
+| 011 | [#11 — Correct and review individual assertions](https://github.com/m950m/MOFs_Platform/issues/11) | Done — closed as completed |
 | 012 | [#12 — Explain laboratory fit from recorded requirements](https://github.com/m950m/MOFs_Platform/issues/12) | Blocked — open |
 | 013 | [#13 — Check the complete first evidence workflow](https://github.com/m950m/MOFs_Platform/issues/13) | Blocked — open |
 | 014 | [#14 — Flag cross-field consistency hints in the research question](https://github.com/m950m/MOFs_Platform/issues/14) | Blocked — open (added 2026-10-01 by owner decision; runs after #13) |
