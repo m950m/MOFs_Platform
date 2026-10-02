@@ -19,9 +19,14 @@ but never fill an entry, treat silence as approval, or edit a recorded decision.
 | D6 | Absence-of-testing filter | None in the first slice; per-reaction outcomes displayed without excluding candidates. | | |
 | D7 | Laboratory capability profile | Seeded from prior statements (no glovebox/inert line; HHTP excluded) but every entry starts `unknown` until owner reconfirms. | **Approved as implemented:** no seeding at all — every entry is owner-entered at runtime with the four statuses (rule per plan §2.5; D6/D8 still open) | 2026-10-02 |
 | D8 | Interactive mock prototype scope | Out of scope (plan §7 backlog boundary). | | |
+| D9 | Permitted search sources for active search (#16) | Metadata-only scholarly search consistent with the D2 contract (no full text): **Crossref REST `/works` queries + OpenAlex `/works` queries**, both polite-pool (contact e-mail), typed failures, transport-injected adapters, every hit a lead. | **Approved — Crossref + OpenAlex** (owner selection via agent decision session; decided immediately after guided session 001) | 2026-10-02 |
+| D10 | AI service for question refinement (#15) | Provider-agnostic adapter (same pattern as the Crossref adapter: injected transport, typed failures, offline tests); **first adapter: Z.ai GLM API** (OpenAI-compatible endpoint). The AI suggests question wording/reaction/condition refinements; the owner accepts or edits — the tool never silently rewrites the saved question. | **Approved — Z.ai GLM API first** (owner selection via agent decision session) | 2026-10-02 |
 
 Gates: **D2 + D3 unblock issue #3**; D1 unblocks #4; D4–D7 are needed before their
 corresponding issues (#11, #8, #4–#13, #12) — see `proposals/diagrams.md` §5.
+**D9 unblocks #16** (active search); **D10 unblocks #15** (AI question refinement).
+Register-D6 (absence-of-testing filter) remains open — it governs candidate
+display/filtering, not search sources.
 
 ---
 
