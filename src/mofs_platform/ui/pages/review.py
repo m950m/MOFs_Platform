@@ -45,9 +45,12 @@ def render_review_page(conn) -> None:
     if asm_options:
         # Target pickers stay OUTSIDE the forms so the corrected/reviewed
         # target survives an action (correct now, review next — same target).
+        # No clear_on_submit here: a rejected action (D4 refusal) must not
+        # wipe the typed reason/location, and batch review of one source
+        # reuses them (guided session 001). Values persist by design.
         st.selectbox("Assertion", list(asm_options), key="rev_asm",
                      format_func=lambda k: asm_options[k])
-        with st.form("correct_assertion_form", clear_on_submit=True):
+        with st.form("correct_assertion_form"):
             st.text_area("Corrected claim text", key="rev_claim_text", height=70)
             st.text_input("Corrected evidence location", key="rev_location")
             st.text_input("Editor (who is correcting)",
@@ -76,7 +79,7 @@ def render_review_page(conn) -> None:
     if asm_options:
         st.selectbox("Assertion", list(asm_options), key="rev_review_asm",
                      format_func=lambda k: asm_options[k])
-        with st.form("review_assertion_form", clear_on_submit=True):
+        with st.form("review_assertion_form"):
             st.text_input("Reviewer", value=_OWNER_DEFAULT_REVIEWER, key="rev_reviewer")
             st.text_input("Supporting source location (exact)", key="rev_support",
                           placeholder="e.g. Methods §2 — you inspected this exact location")
@@ -108,7 +111,7 @@ def render_review_page(conn) -> None:
         }
         st.selectbox("Conflicted assertion", list(pair_options), key="res_asm",
                      format_func=lambda k: pair_options[k])
-        with st.form("resolve_form", clear_on_submit=True):
+        with st.form("resolve_form"):
             st.text_input("Resolver", value=_OWNER_DEFAULT_REVIEWER, key="res_resolver")
             st.text_area(
                 "Resolution reason (required) — e.g. the pair was a double entry, "
@@ -139,7 +142,7 @@ def render_review_page(conn) -> None:
         }
         st.selectbox("Relation", list(rel_options), key="rev_rel",
                      format_func=lambda k: rel_options[k])
-        with st.form("relation_form", clear_on_submit=True):
+        with st.form("relation_form"):
             st.text_input("Corrected evidence location (optional)", key="rev_rel_location")
             st.text_input("Editor / reviewer",
                           value=_OWNER_DEFAULT_REVIEWER, key="rev_rel_editor")
