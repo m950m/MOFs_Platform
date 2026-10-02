@@ -51,7 +51,7 @@ def test_record_assertion_shows_full_provenance(app_with_reference, db_path):
     at.run()
     assert any("recorded" in s.value for s in at.success)
     text = all_text(at)
-    assert "Sample activated under flowing argon at 200 C (synthetic)" in text
+    assert "Sample activated under flowing argon at 200 C" in text.replace("\\", "")
     assert "Methods §2" in text
     assert "directly reported" in text
     assert "needs verification" in text
@@ -128,7 +128,7 @@ def test_restart_keeps_assertions(app_with_reference, run_app, db_path):
     at2 = run_app()  # fresh application session
     _open_evidence_page(at2)
     text = all_text(at2)
-    assert "Durable claim (synthetic)" in text
+    assert "Durable claim" in text.replace("\\", "")
     assert "table S1" in text
 
 

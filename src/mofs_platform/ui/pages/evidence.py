@@ -20,6 +20,7 @@ from mofs_platform.domain.evidence import (
     record_assertion,
 )
 from mofs_platform.domain.references import list_references
+from mofs_platform.ui._widgets import esc
 
 EVIDENCE_PAGE_TITLE = "Evidence"
 
@@ -75,7 +76,7 @@ def render_evidence_page(conn) -> None:
                 "visible; neither replaces the other" if asm.conflicts_with else ""
             )
             st.markdown(
-                f"**#{asm.id} [{asm.claim_type}]** — {asm.claim_text}\n\n"
+                f"**#{asm.id} [{asm.claim_type}]** — {esc(asm.claim_text)}\n\n"
                 f"- Source: {ref_label.get(asm.source_id, asm.source_id)}\n"
                 f"- Evidence location: {asm.evidence_location or '`unknown` — verification still required'}\n"
                 f"- Extracted by: {asm.extraction_author or '`unknown`'}\n"

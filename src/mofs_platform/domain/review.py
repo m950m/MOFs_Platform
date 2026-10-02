@@ -119,6 +119,60 @@ def correct_identity_relation(
             "awaiting_re_review": was_reviewed}
 
 
+def resolve_conflict(
+    conn: sqlite3.Connection, *, assertion_id: int, resolver: str | None,
+    reason: str | None,
+) -> dict:
+    """Resolve a recorded conflict pair by explicit human decision (M1 fix):
+    both assertions return to `needs_verification` (re-review required), the
+    pair links are cleared, and the resolution is attributed in history.
+    Refused without resolver + reason."""
+    a_row = _assertion_row(conn, assertion_id)
+    partner_id = a_row["conflicts_with"]
+    if a_row["review_state"] != "conflicted" or partner_id is None:
+        raise ReviewValidationError(
+            f"Assertion #{assertion_id} is not part of a recorded conflict."
+        )
+    missing = [
+        name for name, value in (("resolver (who resolved it)", resolver),
+                                 ("resolution reason", reason))
+        if not _opt(value)
+    ]
+    if missing:
+        raise ReviewValidationError(
+            "Resolution rejected — missing: " + "; ".join(missing) + "."
+            " The conflict stays flagged; the saved history is untouched."
+        )
+    try:
+        with conn:
+            rows = conn.execute(
+                "SELECT * FROM assertion WHERE id IN (?, ?)",
+                (assertion_id, partner_id),
+            ).fetchall()
+            previous = [_assertion_to_dict(r) for r in rows]
+            conn.execute(
+                "UPDATE assertion SET review_state = 'needs_verification', "
+                "conflicts_with = NULL WHERE id IN (?, ?)",
+                (assertion_id, partner_id),
+            )
+            updated = [_assertion_to_dict(r) for r in conn.execute(
+                "SELECT * FROM assertion WHERE id IN (?, ?)",
+                (assertion_id, partner_id),
+            ).fetchall()]
+            _review_event(
+                conn, entity_type="assertion", entity_id=assertion_id,
+                action="conflict_resolved", reviewer=_opt(resolver),
+                reason=_opt(reason), supporting_location=None, threshold_note=None,
+                previous={"pair": previous}, updated={"pair": updated},
+            )
+    except sqlite3.Error as exc:
+        raise ReviewPersistenceError(
+            f"Saving failed; previously saved records are unchanged. ({exc})"
+        ) from exc
+    return {"resolved": [assertion_id, partner_id],
+            "state": "needs_verification", "by": _opt(resolver)}
+
+
 def list_review_events(conn: sqlite3.Connection, entity_type: str | None = None,
                        entity_id: int | None = None) -> list[ReviewRecord]:
     if entity_type and entity_id:

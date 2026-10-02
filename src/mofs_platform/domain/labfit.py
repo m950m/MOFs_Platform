@@ -68,6 +68,10 @@ def _match_capability(requirement_text: str, capabilities) -> dict | None:
     req = requirement_text.lower()
     for cap in capabilities:
         name = cap.name.lower()
+        # Degenerate names (e.g. a single letter) would match almost any
+        # requirement text — minimum length guard (audit finding m5).
+        if len(name) < 4:
+            continue
         if name in req or (len(req) >= 4 and req in name):
             return {"id": cap.id, "name": cap.name, "status": cap.status}
     return None

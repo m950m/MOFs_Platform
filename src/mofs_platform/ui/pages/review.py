@@ -8,12 +8,16 @@ import streamlit as st
 from mofs_platform.domain.evidence import list_assertions
 from mofs_platform.domain.identity import list_relations
 from mofs_platform.domain.review import (
+    ReviewPersistenceError,
+    ReviewValidationError,
     correct_assertion,
     correct_identity_relation,
     list_review_events,
+    resolve_conflict,
     review_assertion,
     review_identity_relation,
 )
+from mofs_platform.ui._widgets import esc
 
 REVIEW_PAGE_TITLE = "Review"
 
@@ -81,7 +85,7 @@ def render_review_page(conn) -> None:
                 )
                 st.session_state["rev_reset_request"] = True
                 st.rerun()
-            except Exception as exc:  # noqa: BLE001 - validation errors surface below
+            except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
 
     st.subheader("Review an assertion (D4 threshold)")
@@ -109,7 +113,40 @@ def render_review_page(conn) -> None:
                 )
                 st.session_state["rev_reset_request"] = True
                 st.rerun()
-            except Exception as exc:  # noqa: BLE001
+            except (ReviewValidationError, ReviewPersistenceError) as exc:
+                st.error(str(exc))
+
+    conflicted = [a for a in assertions if a.review_state == "conflicted"]
+    if conflicted:
+        st.subheader("Resolve a recorded conflict (explicit human decision)")
+        pair_options = {
+            a.id: f"#{a.id} {a.claim_text[:60]} ↔ pair #{a.conflicts_with}"
+            for a in conflicted
+        }
+        with st.form("resolve_form"):
+            st.selectbox("Conflicted assertion", list(pair_options), key="res_asm",
+                         format_func=lambda k: pair_options[k])
+            st.text_input("Resolver", key="res_resolver")
+            st.text_area(
+                "Resolution reason (required) — e.g. the pair was a double entry, "
+                "or one side was corrected and no longer conflicts",
+                key="res_reason", height=60,
+            )
+            st.form_submit_button("Resolve conflict", key="resolve_conflict", type="primary")
+        if st.session_state.get("resolve_conflict"):
+            try:
+                result = resolve_conflict(
+                    conn, assertion_id=st.session_state.get("res_asm"),
+                    resolver=st.session_state.get("res_resolver"),
+                    reason=st.session_state.get("res_reason"),
+                )
+                st.session_state["flash"] = (
+                    f"Conflict resolved: assertions {result['resolved']} returned to "
+                    "`needs_verification` (re-review required)."
+                )
+                st.session_state["rev_reset_request"] = True
+                st.rerun()
+            except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
 
     st.subheader("Correct / review an identity relation")
@@ -152,7 +189,7 @@ def render_review_page(conn) -> None:
                     )
                 st.session_state["rev_reset_request"] = True
                 st.rerun()
-            except Exception as exc:  # noqa: BLE001
+            except (ReviewValidationError, ReviewPersistenceError) as exc:
                 st.error(str(exc))
 
     st.subheader("Review & correction history")
@@ -161,9 +198,9 @@ def render_review_page(conn) -> None:
         for e in events:
             st.markdown(
                 f"- {e.created_at} — **{e.action}** {e.entity_type} #{e.entity_id}"
-                + (f" — by {e.reviewer}" if e.reviewer else "")
-                + (f" — reason: {e.reason}" if e.reason else "")
-                + (f" — location: {e.supporting_location}" if e.supporting_location else "")
+                + (f" — by {esc(e.reviewer)}" if e.reviewer else "")
+                + (f" — reason: {esc(e.reason)}" if e.reason else "")
+                + (f" — location: {esc(e.supporting_location)}" if e.supporting_location else "")
             )
         st.caption(
             "Originals live in each event's previous snapshot; reviewing one claim "

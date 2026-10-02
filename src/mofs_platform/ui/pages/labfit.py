@@ -7,7 +7,11 @@ and outdated marking. No success promises, no historical restrictions.
 import streamlit as st
 
 from mofs_platform.domain.identity import list_samples
-from mofs_platform.domain.labfit import assess_fit, latest_assessment
+from mofs_platform.domain.labfit import (
+    LabFitValidationError,
+    assess_fit,
+    latest_assessment,
+)
 from mofs_platform.domain.labprofile import list_capabilities
 
 LABFIT_PAGE_TITLE = "Lab fit"
@@ -50,7 +54,7 @@ def render_labfit_page(conn) -> None:
                 f"Assessment #{a.id} recorded: {a.assessment}."
             )
             st.rerun()
-        except Exception as exc:  # noqa: BLE001 - validation surfaced below
+        except LabFitValidationError as exc:
             st.error(str(exc))
             return
 
@@ -78,7 +82,5 @@ def render_labfit_page(conn) -> None:
 
 
 def _source_of(conn, sample_id) -> int:
-    row = conn.execute(
-        "SELECT source_id FROM sample_record WHERE id = ?", (sample_id,)
-    ).fetchone()
-    return int(row["source_id"]) if row else 0
+    samples = {s.id: s.source_id for s in list_samples(conn)}
+    return samples.get(sample_id, 0)

@@ -20,7 +20,9 @@ from mofs_platform.domain.references import (
     enrich_with_crossref,
     level_label,
     list_references,
+    source_dependency_warning,
 )
+from mofs_platform.ui._widgets import esc
 
 SOURCES_PAGE_TITLE = "Sources"
 
@@ -90,7 +92,7 @@ def render_sources_page(conn) -> None:
             if ref.rights_note:
                 lines.append(f"- Rights note: {ref.rights_note}")
             if ref.supplied_input:
-                lines.append(f"- Supplied input (exact): {ref.supplied_input}")
+                lines.append(f"- Supplied input (exact): {esc(ref.supplied_input)}")
             if ref.indexed_at:
                 lines.append(f"- Crossref record version (indexed): {ref.indexed_at}")
             st.markdown("\n".join(lines))
@@ -143,6 +145,9 @@ def render_sources_page(conn) -> None:
         st.form_submit_button("Capture reference", key="save_reference", type="primary")
 
     if st.session_state.get("save_reference"):
+        existing_context = None
+        if _opt := st.session_state.get("ref_doi"):
+            existing_context = _opt.strip() or None
         try:
             ref = add_manual_reference(
                 conn,
@@ -154,7 +159,11 @@ def render_sources_page(conn) -> None:
                 inspected_level=st.session_state.get("ref_level", "unknown"),
                 rights_note=st.session_state.get("ref_rights"),
             )
-            st.session_state["flash"] = f"Reference captured (lead): {ref.title or ref.doi or ref.url}."
+            warning = source_dependency_warning(conn, ref.id) if existing_context else None
+            st.session_state["flash"] = (
+                f"Reference captured (lead): {esc(ref.title or ref.doi or ref.url)}."
+                + (f" — {warning}" if warning else "")
+            )
             st.session_state["ref_reset_request"] = True
             st.rerun()  # success path only — errors stay visible on this render
         except ReferenceValidationError as exc:
