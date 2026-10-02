@@ -44,7 +44,7 @@ def _basis_stamps(conn: sqlite3.Connection, source_id: int) -> dict:
     """Content digests of the assessment inputs. Second-granularity timestamps
     cannot detect same-second edits, so staleness is detected by CONTENT —
     a status/text change always marks older assessments outdated."""
-    question = conn.execute("SELECT text FROM question WHERE id = 1").fetchone()
+    question = conn.execute("SELECT wording AS text FROM question WHERE id = 1").fetchone()
     caps = conn.execute(
         "SELECT COALESCE(GROUP_CONCAT(digest), 'none') AS m FROM "
         "(SELECT name || ':' || status AS digest FROM lab_capability ORDER BY id)"
