@@ -10,6 +10,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 
+from mofs_platform.domain import attempts as attempts_log
 from mofs_platform.sources import crossref
 
 INSPECTED_LEVELS = ("unknown", "metadata", "abstract", "full_text", "user_passage")
@@ -187,6 +188,12 @@ def enrich_with_crossref(
         )
     result = crossref.fetch_metadata(existing["doi"], mailto)
     if isinstance(result, crossref.CrossrefFailure):
+        # The failed attempt is recorded as failed — a later success never
+        # relabels it (issue #9). No automatic retry exists.
+        attempts_log.record_attempt(
+            conn, provider=attempts_log.PROVIDER_CROSSREF, target=existing["doi"],
+            attempt_kind="crossref_enrichment", outcome=result.kind, note=result.detail,
+        )
         return None, result
     try:
         with conn:
@@ -206,6 +213,11 @@ def enrich_with_crossref(
                 "(action, source_id, previous_json, updated_json) "
                 "VALUES ('crossref_enriched', ?, ?, ?)",
                 (reference_id, json.dumps(_row_to_dict(existing)), json.dumps(_row_to_dict(saved))),
+            )
+            attempts_log.record_attempt(
+                conn, provider=attempts_log.PROVIDER_CROSSREF, target=existing["doi"],
+                attempt_kind="crossref_enrichment", outcome="success",
+                note=f"indexed {result.indexed}" if result.indexed else None,
             )
     except sqlite3.Error as exc:
         raise ReferencePersistenceError(
