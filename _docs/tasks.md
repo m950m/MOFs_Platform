@@ -25,7 +25,7 @@ Tasks 004–013 are sequential: each waits for the preceding task to be Done and
 | 005 | [#5 — Save the confirmed laboratory profile](https://github.com/m950m/MOFs_Platform/issues/5) | Done — closed as completed |
 | 006 | [#6 — Capture source references through the selected route](https://github.com/m950m/MOFs_Platform/issues/6) | Done — closed as completed |
 | 007 | [#7 — Record attributed evidence assertions](https://github.com/m950m/MOFs_Platform/issues/7) | Done — closed as completed |
-| 008 | [#8 — Link tested samples and observations without false merges](https://github.com/m950m/MOFs_Platform/issues/8) | Blocked — open |
+| 008 | [#8 — Link tested samples and observations without false merges](https://github.com/m950m/MOFs_Platform/issues/8) | Done — closed as completed |
 | 009 | [#9 — Handle the selected source route's failures](https://github.com/m950m/MOFs_Platform/issues/9) | Blocked — open |
 | 010 | [#10 — Inspect candidates and their source trail](https://github.com/m950m/MOFs_Platform/issues/10) | Blocked — open |
 | 011 | [#11 — Correct and review individual assertions](https://github.com/m950m/MOFs_Platform/issues/11) | Blocked — open |
