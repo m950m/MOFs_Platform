@@ -1,4 +1,5 @@
 from conftest import all_text
+
 """Route-failure handling tests (issue #9) — Crossref route + manual note."""
 
 import pytest
