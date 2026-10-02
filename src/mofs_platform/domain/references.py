@@ -123,6 +123,7 @@ def add_manual_reference(
         raise ReferenceValidationError(
             "Enter at least one pointer: a DOI, a URL, a title/citation, or a supplied passage."
         )
+    detail_note = None
     try:
         existing = None
         if clean_doi:
@@ -145,6 +146,8 @@ def add_manual_reference(
                 )
                 ref_id = int(existing["id"])
                 action = "captured"
+                if _opt(doi) and existing["doi"] and _opt(doi).lower() != existing["doi"].lower():
+                    detail_note = f"re-capture attempt typed DOI variant: {_opt(doi)}"
             else:
                 cur = conn.execute(
                     "INSERT INTO source (question_id, doi, url, title, supplied_input, "
@@ -161,7 +164,8 @@ def add_manual_reference(
                 "(action, source_id, previous_json, updated_json) VALUES (?, ?, ?, ?)",
                 (action, ref_id,
                  json.dumps(_row_to_dict(existing)) if existing is not None else None,
-                 json.dumps(_row_to_dict(saved))),
+                 json.dumps({**_row_to_dict(saved),
+                             "attempt_note": detail_note} if detail_note else _row_to_dict(saved))),
             )
     except ReferenceValidationError:
         raise
@@ -224,6 +228,27 @@ def enrich_with_crossref(
             f"Saving failed; the previously saved references are unchanged. ({exc})"
         ) from exc
     return _row_to_ref(saved), None
+
+
+def source_dependency_warning(conn: sqlite3.Connection, source_id: int) -> str | None:
+    """M3 fix: re-capturing a reference rewrites its captured context. If
+    reviewed assertions or samples already hang off this source, the caller
+    must warn that those approvals' factual basis changed."""
+    reviewed = conn.execute(
+        "SELECT COUNT(*) FROM assertion WHERE source_id = ? AND review_state = 'reviewed'",
+        (source_id,),
+    ).fetchone()[0]
+    samples = conn.execute(
+        "SELECT COUNT(*) FROM sample_record WHERE source_id = ?", (source_id,)
+    ).fetchone()[0]
+    if reviewed or samples:
+        return (
+            f"Re-capture rewrote this reference's captured context — {reviewed} "
+            f"reviewed assertion(s) and {samples} sample record(s) depend on it. "
+            "Re-check those records: approvals were granted against the previous "
+            "capture context."
+        )
+    return None
 
 
 def list_references(conn: sqlite3.Connection) -> list[Reference]:

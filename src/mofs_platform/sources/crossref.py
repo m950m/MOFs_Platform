@@ -9,6 +9,7 @@ The optional `transport` parameter injects httpx.MockTransport in tests so the
 suite never touches the live API.
 """
 
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -68,6 +69,10 @@ def fetch_metadata(
     if not doi or not doi.strip():
         return CrossrefFailure("bad_input", "DOI is empty.")
     clean = doi.strip()
+    if not re.fullmatch(r"10\.\d{4,9}/\S+", clean):
+        return CrossrefFailure(
+            "bad_input", f"'{clean}' is not a syntactically valid DOI (expected 10.xxxx/...)."
+        )
     try:
         with httpx.Client(timeout=timeout, transport=transport) as client:
             params = {"mailto": mailto} if mailto else None
@@ -91,4 +96,11 @@ def fetch_metadata(
         return CrossrefFailure("bad_response", f"Crossref body was not valid metadata. ({exc})")
     if not isinstance(message, dict):
         return CrossrefFailure("bad_response", "Crossref body had an unexpected shape.")
-    return _map_message(clean, message)
+    mapped = _map_message(clean, message)
+    if mapped.doi and mapped.doi.strip().lower() != clean.lower():
+        return CrossrefFailure(
+            "bad_response",
+            f"Provider record DOI '{mapped.doi}' does not match the requested "
+            f"'{clean}' — nothing would be filled; verify the DOI.",
+        )
+    return mapped

@@ -17,7 +17,7 @@ but never fill an entry, treat silence as approval, or edit a recorded decision.
 | D4 | Threshold for an assertion to become `reviewed` | Named human records a ReviewEvent confirming inspection of the exact cited evidence location (who, when, verdict, reason). | **Approved — D4 proposal as-is** (owner selection via agent decision session) | 2026-10-02 |
 | D5 | Cross-source sample equivalence rule | Human confirms both sources explicitly designate the same sample (shared batch ID or explicit citation); otherwise records stay separate; no automated merge. | **Approved — stricter variant: NO cross-source equivalence, ever.** Records stay separate permanently; the relation stays `unresolved`/documented; even a qualifying human review cannot merge (owner selection) | 2026-10-02 |
 | D6 | Absence-of-testing filter | None in the first slice; per-reaction outcomes displayed without excluding candidates. | | |
-| D7 | Laboratory capability profile | Seeded from prior statements (no glovebox/inert line; HHTP excluded) but every entry starts `unknown` until owner reconfirms. | | |
+| D7 | Laboratory capability profile | Seeded from prior statements (no glovebox/inert line; HHTP excluded) but every entry starts `unknown` until owner reconfirms. | **Approved as implemented:** no seeding at all — every entry is owner-entered at runtime with the four statuses (rule per plan §2.5; D6/D8 still open) | 2026-10-02 |
 | D8 | Interactive mock prototype scope | Out of scope (plan §7 backlog boundary). | | |
 
 Gates: **D2 + D3 unblock issue #3**; D1 unblocks #4; D4–D7 are needed before their

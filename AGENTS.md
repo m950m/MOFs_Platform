@@ -6,11 +6,10 @@ Mohammed; he holds every scientific and product decision.
 
 ## Non-negotiable rules
 
-1. **Owner authority.** The pending decisions D1–D8 in
-   `_docs/decision-register.md` (first source route, stack, research question,
-   review threshold, cross-source equivalence rule, absence filter, lab profile,
-   mock-prototype scope) are his alone. Never fill one by guessing, defaulting,
-   or treating silence as approval. Ask one focused question instead.
+1. **Owner authority.** Decisions D1–D5 are **recorded as approved** in
+   `_docs/decision-register.md`; D6–D8 remain open and are his alone. Never
+   fill an open decision by guessing, defaulting, or treating silence as
+   approval. Ask one focused question instead.
 2. **One active task at a time.** GitHub Issues are the backlog. A blocked issue
    becomes Ready only when its blocking decisions are recorded. Never silently
    insert, reorder, or mark an issue Ready.

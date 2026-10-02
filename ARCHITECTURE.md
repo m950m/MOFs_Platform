@@ -16,7 +16,7 @@ ui/  ──▶  domain/  ──▶  db/ (SQLite + numbered migrations)
 
 | Layer | Rule | Why it is fixed |
 |---|---|---|
-| `domain/` | Pure Python. Imports: stdlib only. No Streamlit, no HTTP, no file paths | Contributors can test all scientific logic offline, in seconds |
+| `domain/` | Pure Python. Imports: stdlib + the `sources/` adapters it calls (adapters own all HTTP — the one sanctioned exception, added 2026-10-02). No Streamlit, no file paths | Contributors can test all scientific logic offline (adapters are fixture-injected) |
 | `db/` | Every schema change = numbered migration in `db/migrations/`; never edit a shipped migration; `schema_migrations` tracks what applied | Contributor checkouts upgrade their local data safely, deterministically |
 | `sources/` | One adapter per provider; returns typed results **or** typed failures; live calls only outside tests (fixtures replace them) | Adding a provider never touches domain or db code |
 | `ui/` | Streamlit pages render through domain functions only; `session_state` is never storage | UI can be replaced (CLI, web) without touching science |
@@ -39,10 +39,10 @@ ui/  ──▶  domain/  ──▶  db/ (SQLite + numbered migrations)
 
 - **License:** Apache-2.0 (explicit patent grant; swap only by owner decision).
 - **Contributors** submit data as **evidence packages** (standardized,
-  attributable JSON export/import, defined before #13 closes) — every imported
+  attributable JSON export/import, specified in issue #19) — every imported
   row enters with the contributor's attribution and review state
-  `needs verification`. The import/review workflow is issue #19. A hosted
-  multi-user server is **out of scope** until the owner explicitly decides.
+  `needs verification`. A hosted multi-user server is **out of scope** until
+  the owner explicitly decides.
 - **Contribution safety:** PRs run the offline test suite; a PR may not weaken
   identity invariants, provenance capture, or review-state rules — such changes
   require an ADR + owner approval.
@@ -71,6 +71,17 @@ These rules bind every task, PR, and QA review:
 7. **Docs stay short.** A new guide document requires an owner decision;
    prefer extending an existing one. Over-engineered process is the same
    failure as over-engineered code (plan risk RSK-002).
+
+## Known accepted trade-offs (recorded 2026-10-02)
+
+- `ON DELETE CASCADE` on source→assertion/sample tables: no delete path exists
+today; when #19 adds import/deletion, switch to RESTRICT (evidence is never
+destroyed).
+- The flash/reset Streamlit idiom is repeated across 8 pages with deliberate
+per-page variations (custom widget keys, edit modes). Centralizing it is
+deferred until #14–#16 add pages; regressions are covered by AppTest suites.
+- `in_review` review-state vocabulary is schema-reserved with no producing
+transition yet (issue #11 scope).
 
 ## Extension points (where contributors plug in)
 

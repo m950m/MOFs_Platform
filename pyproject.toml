@@ -6,6 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "mofs-platform"
 version = "0.1.0"
 description = "Evidence-traceable research tool for MOF-related electrochemistry (HER/OER)"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Mohammed", email = "nabilmuhammed950@gmail.com" }]
 requires-python = ">=3.11"
 dependencies = [
     "streamlit==1.64.0",

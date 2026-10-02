@@ -240,9 +240,21 @@ def record_observation(
     protocol: str | None = None,
     evidence_location: str | None = None,
 ) -> Observation:
-    if get_sample(conn, sample_id) is None:
+    sample = get_sample(conn, sample_id)
+    if sample is None:
         raise IdentityValidationError(f"Sample #{sample_id} does not exist.")
     sid = _require_source(conn, source_id)
+    if sid != sample.source_id:
+        # Attaching a measurement from another source to this sample is an
+        # implicit cross-source sample-identity claim — reserved for human
+        # review (plan §3, owner decision D5). Never silent.
+        raise IdentityValidationError(
+            f"The observation's source (#{sid}) differs from the sample's source "
+            f"(#{sample.source_id}). That is a cross-source identity claim, which "
+            "this tool never records silently (owner decision D5) — capture the "
+            "observation under the sample's own source, or record a separate "
+            "sample from that source."
+        )
     if observation_kind not in OBSERVATION_KINDS:
         raise IdentityValidationError(
             f"Observation kind must be one of {OBSERVATION_KINDS!r} — got {observation_kind!r}."

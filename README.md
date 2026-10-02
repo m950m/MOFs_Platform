@@ -5,11 +5,13 @@ discover materials with documented experimental preparation, keep each claim's
 source and location, preserve tested-sample identity, and let the researcher —
 not the tool — draw scientific conclusions.
 
-**Status:** issues #1–#4 delivered — tested-sample identity contract (documentation),
-source/stack options analysis, a runnable local project with a startup smoke check
-(#3), and research-question entry/correction/persistence with local SQLite (#4).
-Issues #5–#13 are next, in order. Owner decisions are recorded in
-[`_docs/decision-register.md`](_docs/decision-register.md).
+**Status:** the first complete evidence workflow is DONE — issues #3–#13 all
+closed with independent QA + scientific-review evidence (acceptance run:
+[`_docs/acceptance-run-001.md`](_docs/acceptance-run-001.md)). The backlog now
+holds the owner-approved vision layer (#14–#19: consistency hints, question
+refinement, active search, lab-vs-industry benchmarks, compound profiles,
+contributor packages). Owner decisions D1–D5 are recorded;
+D6–D8 remain open in [`_docs/decision-register.md`](_docs/decision-register.md).
 
 ## Read first
 
