@@ -4,6 +4,8 @@ The suite never touches the live API — every call uses an injected
 httpx.MockTransport.
 """
 
+import json
+
 import httpx
 
 from mofs_platform.sources import glm
@@ -48,12 +50,22 @@ def test_bad_input_without_wording():
 
 def test_success_parses_suggestions_and_notes():
     def handler(request):
-        body = request.read()
-        assert b"wording" in body  # only the question fields are sent
+        sent = json.loads(request.read())["messages"][1]["content"]
+        payload = json.loads(sent)
+        # ONLY the seven question fields are sent — nothing else from the DB
+        assert set(payload) == {
+            "wording", "reactions", "material_classes", "conditions",
+            "hard_requirements", "preferences", "meaning_of_improvement",
+        }
         return httpx.Response(200, json=_ok_body(GOOD_JSON))
 
     result = glm.suggest_refinement(
-        {"wording": "Q", "reactions": None}, "key", transport=_transport(handler)
+        {  # exactly what the UI sends: all seven question fields
+            "wording": "Q", "reactions": None, "material_classes": None,
+            "conditions": None, "hard_requirements": None,
+            "preferences": None, "meaning_of_improvement": None,
+        },
+        "key", transport=_transport(handler),
     )
     assert result.suggestions["wording"].startswith("Which conductive MOFs")
     assert result.suggestions["conditions"] == "1 M KOH"

@@ -211,14 +211,11 @@ def _render_ai_section(conn, current: Question | None, applied: dict) -> None:
             }
             result = glm.suggest_refinement(fields, key)
             outcome = "success" if not isinstance(result, glm.GLMFailure) else result.kind
-            try:
-                record_attempt(
-                    conn, provider=PROVIDER_AI, target="question_refinement",
-                    attempt_kind="ai_refinement", outcome=outcome,
-                    note=None if outcome == "success" else result.detail,
-                )
-            except ValueError:
-                pass  # outcome vocabulary drift must never crash the page
+            record_attempt(
+                conn, provider=PROVIDER_AI, target="question_refinement",
+                attempt_kind="ai_refinement", outcome=outcome,
+                note=None if outcome == "success" else result.detail,
+            )
             if isinstance(result, glm.GLMFailure):
                 st.warning(
                     f"`{result.kind}` — {result.detail} Next step: "
