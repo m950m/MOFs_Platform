@@ -39,6 +39,7 @@ def test_migrations_are_idempotent(db_path):
         "0013_ai_refinement_attempts.sql",
         "0014_structure_index.sql",
         "0015_compound_profiles.sql",
+        "0016_number_streams.sql",
     ]
     second.close()
 
