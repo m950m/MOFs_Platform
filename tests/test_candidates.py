@@ -166,3 +166,49 @@ def test_ui_empty_candidates_invents_nothing(run_app, db_path):
     text = all_text(at)
     assert "No candidates saved for the question yet" in text
     assert "Sample-A" not in text
+
+
+def test_compound_profile_ui_flow(run_app, conn_with_fixture):
+    """Issue #18 UI: create, attach, inspect — with injection text rendered
+    inert (esc coverage) and no auto-save anywhere."""
+    _conn, _ref_id, sample_id = conn_with_fixture
+    at = run_app()
+    at.run()
+    at.sidebar.radio[0].set_value("Candidates")
+    at.run()
+    text = all_text(at)
+    assert "Compounds (feature cards)" in text
+    assert "No compounds yet" in text
+
+    def keyed(elements, key):
+        matches = [e for e in elements if e.key == key]
+        assert len(matches) == 1, f"expected one {key}"
+        return matches[0]
+
+    keyed(at.text_input, "cp_name").set_value("Compound-A *[b](http://e)*")
+    keyed(at.text_area, "cp_note").set_value("reported candidate grouping")
+    keyed(at.button, "cp_create").click()
+    at.run()
+    assert any("never a merge" in s.value for s in at.success)
+    raw = all_text(at)
+    text = raw.replace("\\", "")
+    # injection payload renders verbatim (escaped) — never as live markdown
+    assert "Compound-A *[b](http://e)*" in text
+    assert "](http://e)" not in raw  # no unescaped link structure in output
+
+    keyed(at.button, "cp_open").click()
+    at.run()
+    text = all_text(at).replace("\\", "")
+    assert "NEVER merges records" in text  # D5 caption on the opened profile
+    assert "Sample members: `unknown` — none attached" in text
+
+    keyed(at.selectbox, "cp_mtype").set_value("sample_record")
+    keyed(at.text_input, "cp_mid").set_value(str(sample_id))
+    keyed(at.text_area, "cp_mreason").set_value("the reported candidate")
+    keyed(at.button, "cp_attach").click()
+    at.run()
+    assert any("Member attached" in s.value for s in at.success)
+    text = all_text(at).replace("\\", "")
+    assert "Sample-A (synthetic)" in text
+    assert "- [experimental] 180 mV" in text  # stays under its sample
+    assert "reaction: `unknown`" in text  # honest unknowns, no invention
