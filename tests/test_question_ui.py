@@ -3,6 +3,8 @@
 from conftest import all_text
 from mofs_platform.db.connection import connect
 from mofs_platform.domain.questions import count_events, get_question
+from mofs_platform.domain.refinement import VAGUE_TERMS_DOCUMENTATION
+from mofs_platform.sources import glm
 
 
 def _open_question_page(at):
@@ -127,3 +129,91 @@ def test_unsaved_edit_is_not_presented_as_persisted(run_app, db_path):
     assert "Typed but never saved" not in text
     conn = connect(db_path)
     assert get_question(conn) is None
+
+
+# --- issue #15: refinement observations + optional assistant ----------------
+
+
+def test_vague_question_shows_mechanical_observations(run_app):
+    at = run_app()
+    at.sidebar.radio[0].set_value("Research question")
+    at.run()
+    at.text_area[0].set_value("Find a low-cost MOF for HER")
+    matches = [b for b in at.button if getattr(b, "label", "") == "Save question"]
+    matches[0].click()
+    at.run()
+    text = all_text(at)
+    assert "Mechanical observations" in text
+    assert "'low-cost'" in text
+    assert "tool inference" in text
+    assert VAGUE_TERMS_DOCUMENTATION[:40] in text
+
+
+def test_precise_complete_question_shows_no_observations(run_app):
+    at = run_app()
+    at.sidebar.radio[0].set_value("Research question")
+    at.run()
+    at.text_area[0].set_value(
+        "Which conductive MOF compositions function as a single bifunctional "
+        "electrode for the hydrogen evolution reaction and the oxygen "
+        "evolution reaction in 1 M KOH at room temperature?"
+    )
+    at.text_input[0].set_value("HER, OER")
+    at.text_input[1].set_value("MOF")
+    areas = [t for t in at.text_area]
+    areas[1].set_value("1 M KOH electrolyte, 25 C")   # conditions
+    areas[2].set_value("overpotential below 300 mV")  # hard requirements
+    areas[3].set_value("nickel based")                # preferences
+    areas[4].set_value("lower total overpotential")   # meaning of improvement
+    matches = [b for b in at.button if getattr(b, "label", "") == "Save question"]
+    matches[0].click()
+    at.run()
+    text = all_text(at)
+    assert "No mechanical observations" in text
+
+
+def test_ai_suggestion_requires_enable_and_never_autosaves(run_app, db_path, monkeypatch):
+    suggestion = glm.GLMRefinement(
+        suggestions={"conditions": "1 M KOH electrolyte"},
+        notes="adds the missing electrolyte.",
+    )
+    monkeypatch.setattr(
+        "mofs_platform.sources.glm.suggest_refinement",
+        lambda *a, **k: suggestion,
+    )
+    at = run_app()
+    at.sidebar.radio[0].set_value("Research question")
+    at.run()
+    at.text_area[0].set_value("Which MOFs catalyze HER?")
+    next(b for b in at.button if getattr(b, "label", "") == "Save question").click()
+    at.run()
+    # unchecked enable -> warning, nothing sent
+    next(b for b in at.button if getattr(b, "label", "") == "Request suggestions").click()
+    at.run()
+    assert at.warning and "Enable the assistant first" in at.warning[0].value
+    # enable + request -> suggestion rendered as tool inference
+    at.checkbox[0].check()
+    next(b for b in at.button if getattr(b, "label", "") == "Request suggestions").click()
+    at.run()
+    text = all_text(at)
+    assert "tool inference" in text and "1 M KOH electrolyte" in text
+    assert "never auto-applied" in text
+    # the saved question is UNCHANGED until the owner applies AND saves
+    q = get_question(connect(db_path))
+    assert q.conditions is None
+    # apply -> form prefilled, but still not saved
+    next(b for b in at.button if getattr(b, "label", "") == "Apply suggestion to the form below").click()
+    at.run()
+    q = get_question(connect(db_path))
+    assert q.conditions is None  # applying never saves
+    # the owner's explicit save persists it as their own value
+    next(b for b in at.button if getattr(b, "label", "") == "Save question").click()
+    at.run()
+    q = get_question(connect(db_path))
+    assert q.conditions == "1 M KOH electrolyte"
+    # every assistant call was audited
+    conn = connect(db_path)
+    rows = conn.execute(
+        "SELECT outcome FROM route_attempt WHERE attempt_kind = 'ai_refinement'"
+    ).fetchall()
+    assert [r[0] for r in rows] == ["success"]
