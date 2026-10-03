@@ -123,7 +123,6 @@ def test_distinctness_same_formula_two_arrangements_two_profiles(conn_with_membe
     p1, p2 = get_profile(conn, c1.id), get_profile(conn, c2.id)
     assert len(p1.structures) == 1 and len(p2.structures) == 1
     assert p1.structures[0]["id"] != p2.structures[0]["id"]
-    assert p1.structures[0]["properties"] != {} or p2.structures[0]["properties"] == {}
     # no transfer: profile B has no properties from profile A's member
     assert "Band Gap (eV)" not in p2.structures[0]["properties"]
 

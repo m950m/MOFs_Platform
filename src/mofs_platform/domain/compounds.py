@@ -258,6 +258,10 @@ def get_profile(conn: sqlite3.Connection, compound_id: int) -> CompoundProfile:
                     "id": o["id"], "kind": o["observation_kind"],
                     "value": o["value"], "unit": o["unit"], "reaction": o["reaction"],
                     "medium": o["medium"], "location": o["evidence_location"],
+                    "source_id": o["source_id"],
+                    "reference_convention": o["reference_convention"],
+                    "loading": o["loading"], "duration": o["duration"],
+                    "protocol": o["protocol"],
                 }
                 for o in conn.execute(
                     "SELECT * FROM observation WHERE sample_id = ? ORDER BY id",
