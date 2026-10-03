@@ -462,7 +462,7 @@ def _render_structure_section(conn) -> None:
                 # Computed/context properties ride along from the provider CSV
                 # (e.g. QMOF band gaps). They are theory-stream metadata about
                 # a structure record — never measured lab evidence (D11).
-                st.markdown(f"  - `{r['provider']}` record properties: {r['extra']}")
+                st.markdown(f"  - `{r['provider']}` computed/context properties: {esc(r['extra'])}")
             if r["doi"] and st.button(
                 "Capture as reference", key=f"capture_struct_{r['id']}"
             ):

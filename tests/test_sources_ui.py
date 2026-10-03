@@ -202,5 +202,5 @@ def test_structure_extras_render_as_theory_metadata(app_with_question, db_path, 
     by_key(at.button, "struct_search").click()
     at.run()
     text = all_text(at)
-    assert "record properties:" in text
-    assert "Band Gap (eV)" in text
+    assert "`qmof` computed/context properties:" in text
+    assert "Band Gap (eV)" in text and "1.42" in text
