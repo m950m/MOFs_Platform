@@ -397,9 +397,14 @@ def _render_structure_section(conn) -> None:
     else:
         st.caption(
             "The index is empty. Download the CoRE MOF 2019 deposit from "
-            "Zenodo (record 4086443), export its summary spreadsheet as CSV, "
-            "and import it below. The tool never downloads anything itself — "
-            "the file comes from you, and the import is attributed."
+            "https://zenodo.org/records/4086443 , export its summary "
+            "spreadsheet as CSV, and import it below. Expected CSV columns "
+            "(flexible matching, first hit wins): a name column (name / "
+            "MOF Name / title / compound), DOI, Formula, an id column "
+            "(Refcode / MOFid / id), an optional file column; any other "
+            "columns are preserved as extra data. The tool never downloads "
+            "anything itself — the file comes from you, and the import is "
+            "attributed."
         )
     provider = st.selectbox(
         "Provider of the CSV", list(STRUCTURE_PROVIDERS), key="struct_provider"
