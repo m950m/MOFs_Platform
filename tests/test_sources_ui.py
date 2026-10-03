@@ -181,3 +181,26 @@ def test_structure_import_search_and_capture(app_with_question, db_path, tmp_pat
     refs = list_references(connect(db_path))
     assert len(refs) == 1
     assert "structure index [core_mof_2019]" in refs[0].supplied_input
+
+
+def test_structure_extras_render_as_theory_metadata(app_with_question, db_path, tmp_path):
+    """QMOF-style computed properties ride along from the provider CSV and
+    render labeled to their provider — theory-stream metadata, never lab
+    evidence (D11)."""
+    csv = tmp_path / "qmof.csv"
+    csv.write_text(
+        "MOF Name,DOI,Band Gap (eV)\n"
+        "QMOF-test,10.9999/qmof,1.42\n"
+    )
+    at = app_with_question
+    _open_sources_page(at)
+    by_key(at.selectbox, "struct_provider").set_value("qmof")
+    by_key(at.text_input, "struct_csv_path").set_value(str(csv))
+    by_key(at.button, "struct_import").click()
+    at.run()
+    by_key(at.text_input, "struct_query").set_value("QMOF-test")
+    by_key(at.button, "struct_search").click()
+    at.run()
+    text = all_text(at)
+    assert "`qmof` computed/context properties:" in text
+    assert "Band Gap (eV)" in text and "1.42" in text
