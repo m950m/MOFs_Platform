@@ -13,6 +13,14 @@ from mofs_platform.domain.labfit import (
     latest_assessment,
 )
 from mofs_platform.domain.labprofile import list_capabilities
+from mofs_platform.domain.numbers import (
+    CAVEAT,
+    NumberValidationError,
+    add_number,
+    build_comparison,
+    list_numbers,
+)
+from mofs_platform.ui._widgets import esc
 
 LABFIT_PAGE_TITLE = "Lab fit"
 
@@ -79,6 +87,127 @@ def render_labfit_page(conn) -> None:
             f"effect: **{r['effect']}**\n  - {r['reason']}"
             + (f" — location: {r['evidence_location']}" if r.get("evidence_location") else "")
         )
+
+    st.divider()
+    _render_number_streams(conn)
+
+
+def _render_number_streams(conn) -> None:
+    """Number streams (issue #17, D11): laboratory and industry_reference
+    numbers are SEPARATE streams — rows are never merged into one verdict.
+    Comparison is display-only with the caveat rendered; the table starts
+    empty (nothing enters from memory — the initial reference set is the
+    owner's decision, entered with provenance)."""
+    st.subheader("Number streams (D11: laboratory vs industry — separate, never merged)")
+    st.caption(
+        "The reference table starts EMPTY: the initial industry reference set "
+        "is the owner's decision (e.g. DOE Hydrogen Program electrolyzer "
+        "targets) — every row must carry its source and year. Nothing is "
+        "seeded from memory."
+    )
+    with st.form("number_form", clear_on_submit=False):
+        st.selectbox("Stream", ["laboratory", "industry_reference"], key="num_stream")
+        st.text_input("Label (what this number is)", key="num_label",
+                      placeholder="e.g. overpotential at 10 mA/cm2 / DOE 2026 target")
+        st.text_input("Value (as reported)", key="num_value")
+        st.text_input("Unit (as reported)", key="num_unit")
+        st.selectbox("Reaction", ["HER", "OER", "other"], key="num_reaction")
+        st.text_area("Conditions note (scale, electrolyte, temperature — differences "
+                     "are displayed, never hidden)", key="num_conditions", height=50)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.text_input("Source reference id (optional)", key="num_src_id")
+        with c2:
+            st.text_input("Source citation (required if no id)", key="num_citation")
+        with c3:
+            st.text_input("Source year (optional)", key="num_year")
+        st.text_input("Contributor", value="Mohammed (owner)", key="num_by")
+        st.form_submit_button("Record number", key="num_save", type="primary")
+    if st.session_state.get("num_save"):
+        try:
+            n = add_number(
+                conn, stream=st.session_state.get("num_stream"),
+                label=st.session_state.get("num_label"),
+                value=st.session_state.get("num_value"),
+                reaction=st.session_state.get("num_reaction"),
+                unit=st.session_state.get("num_unit"),
+                conditions_note=st.session_state.get("num_conditions"),
+                source_id=st.session_state.get("num_src_id") or None,
+                source_citation=st.session_state.get("num_citation"),
+                source_year=st.session_state.get("num_year"),
+                contributor=st.session_state.get("num_by"),
+            )
+            st.session_state["flash"] = (
+                f"Number recorded in the `{n.stream}` stream (as reported, "
+                "with provenance)."
+            )
+            st.rerun()
+        except NumberValidationError as exc:
+            st.error(str(exc))
+
+    comparison = build_comparison(conn)
+    lab_rows = list_numbers(conn, "laboratory")
+    industry_rows = list_numbers(conn, "industry_reference")
+    if not lab_rows and not industry_rows and not comparison["comparisons"]:
+        st.info(
+            "Both streams are empty. Record laboratory numbers from your "
+            "measurements and industry reference numbers from the source you "
+            "approve — the comparison view appears when either side exists."
+        )
+        return
+    if comparison["comparisons"]:
+        st.markdown("**Comparison view (display only — see the caveat):**")
+        for comp in comparison["comparisons"]:
+            lab = comp["laboratory"]
+            st.markdown(
+                f"**Reaction: {comp['reaction']}** — laboratory: sample "
+                f"{esc(lab['sample'])}: {esc(lab['value'])} {esc(lab['unit']) or ''} "
+                f"({esc(lab['protocol']) or 'protocol `unknown`'})"
+            )
+            st.markdown(
+                f"- Laboratory conditions: medium {esc(lab['medium']) or '`unknown`'} "
+                f"— reference {esc(lab['reference_convention']) or '`unknown`'} — "
+                f"loading {esc(lab['loading']) or '`unknown`'} — duration "
+                f"{esc(lab['duration']) or '`unknown`'} — loc {esc(lab['location']) or '`unknown`'}"
+            )
+            if comp["industry_reference"]:
+                for ref in comp["industry_reference"]:
+                    st.markdown(
+                        f"- Industry reference: {esc(ref['label'])} — "
+                        f"{esc(ref['value'])} {esc(ref['unit']) or ''} — "
+                        f"conditions: {esc(ref['conditions_note']) or '`unknown`'} — "
+                        f"source: {esc(ref['source_citation']) or '`unknown`'} "
+                        f"({esc(ref['source_year']) or 'year `unknown`'})"
+                    )
+            else:
+                st.markdown(
+                    "- Industry reference: `unknown` — no reference row for "
+                    "this reaction yet (nothing inferred from similar values)."
+                )
+    else:
+        st.info(
+            "No recorded laboratory observations with HER/OER values yet — "
+            "record samples and observations under **Samples & identity**; "
+            "the comparison view pairs them with the reference stream."
+        )
+    if lab_rows:
+        st.markdown(f"**Laboratory stream ({len(lab_rows)} rows):**")
+        for n in lab_rows:
+            st.markdown(
+                f"- {esc(n.label)}: {esc(n.value)} {esc(n.unit) or ''} "
+                f"({n.reaction}) — {esc(n.conditions_note) or 'conditions `unknown`'} "
+                f"— by {esc(n.contributor)}"
+            )
+    if industry_rows:
+        st.markdown(f"**Industry reference stream ({len(industry_rows)} rows):**")
+        for n in industry_rows:
+            st.markdown(
+                f"- {esc(n.label)}: {esc(n.value)} {esc(n.unit) or ''} "
+                f"({n.reaction}) — {esc(n.conditions_note) or 'conditions `unknown`'} "
+                f"— source: {esc(n.source_citation) or 'see reference'} "
+                f"({esc(n.source_year) or 'year `unknown`'}) — by {esc(n.contributor)}"
+            )
+    st.warning(CAVEAT)
 
 
 def _source_of(conn, sample_id) -> int:
