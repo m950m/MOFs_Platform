@@ -63,7 +63,7 @@ class StoredHit:
     dismissed_by: str | None
     dismiss_reason: str | None
     captured_source_id: int | None
-    criteria: dict[str, bool]
+    criteria: dict[str, bool | None]
     created_at: str
 
 
@@ -75,12 +75,12 @@ def _row_to_run(row: sqlite3.Row) -> SearchRun:
     )
 
 
-def _parse_criteria(raw: str | None) -> dict[str, bool]:
+def _parse_criteria(raw: str | None) -> dict[str, bool | None]:
     if not raw:
         return {}
     try:
         data = json.loads(raw)
-        return {str(k): bool(v) for k, v in data.items()}
+        return {str(k): (None if v is None else bool(v)) for k, v in data.items()}
     except (json.JSONDecodeError, AttributeError):
         return {}
 
@@ -150,10 +150,16 @@ def extract_criteria(conn: sqlite3.Connection) -> dict[str, str | None]:
     return criteria
 
 
-def match_criteria(title: str | None, criteria: dict[str, str | None]) -> dict[str, bool]:
+def match_criteria(
+    title: str | None, criteria: dict[str, str | None]
+) -> dict[str, bool | None]:
     """Check each extracted criterion phrase against a hit title,
-    case-insensitively. The result is stored per hit at run time."""
-    lowered = (title or "").lower()
+    case-insensitively. The result is stored per hit at run time. A hit with
+    no title in the provider metadata yields None per criterion — recorded
+    as `unknown`, never as a match or a miss."""
+    if title is None or not title.strip():
+        return {phrase: None for phrase in criteria}
+    lowered = title.lower()
     return {phrase: phrase.lower() in lowered for phrase in criteria}
 
 

@@ -283,16 +283,25 @@ def render_sources_page(conn) -> None:
                     ]
                     if hit.criteria:
                         for phrase, matched in hit.criteria.items():
-                            lines.append(
-                                f"- Criterion from your question — '{esc(phrase)}': "
-                                + ("**matched in title**" if matched
-                                   else "not in title (a metadata miss is not a failure)")
-                            )
+                            if matched is None:
+                                lines.append(
+                                    f"- Criterion from your question — "
+                                    f"'{esc(phrase)}': `unknown` (no title in "
+                                    "the provider metadata)"
+                                )
+                            else:
+                                lines.append(
+                                    f"- Criterion from your question — "
+                                    f"'{esc(phrase)}': "
+                                    + ("**matched in title**" if matched
+                                       else "not in title (a metadata miss is "
+                                       "not a failure)")
+                                )
                     else:
                         lines.append(
-                            "- Per-criterion check: `unknown` — no hard "
-                            "requirements or preferences recorded in the saved "
-                            "question, so nothing mechanical to match."
+                            "- Per-criterion check: `unknown` — the run predates "
+                            "the per-criterion check or the saved question has no "
+                            "hard requirements / preferences recorded."
                         )
                     st.markdown("\n".join(lines))
                     c_cap, c_dis = st.columns(2)

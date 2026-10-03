@@ -99,3 +99,63 @@ def test_edited_query_runs_with_owner_edited_scope(app_with_question, monkeypatc
     text = all_text(at)
     assert "owner_edited" in text
     assert "owner_question_verbatim" not in text  # only the edited scope ran
+
+
+def test_criteria_display_and_scope_caption(app_with_question, monkeypatch):
+    """Plan step 3 deliverable (spec-compliance review finding): the UI shows
+    per-criterion results, the unknown branch, and the pagination scope."""
+    monkeypatch.setattr(
+        "mofs_platform.domain.search.extract_criteria",
+        lambda conn: {"conductive MOF": "hard_requirements"},
+    )
+    monkeypatch.setattr(
+        "mofs_platform.sources.crossref.search_works",
+        lambda *a, **k: [
+            crossref.SearchHit(doi="10.9999/m", title="A conductive MOF study",
+                               issued_year=None, container=None, her_token=False,
+                               oer_token=False),
+            crossref.SearchHit(doi="10.9999/nt", title=None, issued_year=None,
+                               container=None, her_token=False, oer_token=False),
+        ],
+    )
+    at = app_with_question
+    _open_sources_page(at)
+    by_key(at.button, "run_search").click()
+    at.run()
+    text = all_text(at)
+    assert "'conductive MOF': **matched in title**" in text
+    assert "`unknown` (no title in the provider metadata)" in text
+    assert "one polite page per run (8 hits, a single request" in text
+    assert "auto-paging is deliberately out of scope" in text
+
+
+def test_unknown_criteria_line_for_criteria_less_runs(run_app, db_path):
+    """Legacy runs (criteria_json NULL) and criteria-less questions render the
+    honest unknown line, not a false reason."""
+    conn = connect(db_path)
+    save_question(conn, Question(wording="Plain question without criteria"))
+    conn.close()
+    monkeypatched = False
+    at = run_app()
+    at.sidebar.radio[0].set_value("Sources")
+    at.run()
+    # simulate a pre-0012 run by inserting directly
+    c = connect(db_path)
+    c.execute(
+        "INSERT INTO search_run (provider, query_text, scope, outcome, result_count) "
+        "VALUES ('crossref', 'q', 'owner_edited', 'success', 1)"
+    )
+    run_id = c.execute("SELECT MAX(id) FROM search_run").fetchone()[0]
+    c.execute(
+        "INSERT INTO search_hit (run_id, provider, doi, title, issued_year, container, "
+        "her_token, oer_token) VALUES (?, 'crossref', '10.9999/legacy', 'Legacy hit', "
+        "NULL, NULL, 0, 0)",
+        (run_id,),
+    )
+    c.commit()
+    c.close()
+    at.run()
+    text = all_text(at)
+    assert "Per-criterion check: `unknown`" in text
+    assert "the run predates the per-criterion check" in text
+    assert monkeypatched is False
