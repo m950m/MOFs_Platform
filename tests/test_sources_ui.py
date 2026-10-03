@@ -140,3 +140,44 @@ def test_restart_shows_saved_references_with_provenance(app_with_question, run_a
     assert "Durable lead" in text
     assert "10.9999/durable" in text
     assert "Origin: `manual`" in text
+
+
+# --- structure lookup (issue #24, D12 slice 1) -------------------------------
+
+
+def test_structure_section_shows_honest_empty_instructions(app_with_question):
+    at = app_with_question
+    _open_sources_page(at)
+    text = all_text(at)
+    assert "Structure lookup (D12: CoRE MOF 2019 first)" in text
+    assert "The index is empty" in text
+    assert "The tool never downloads anything itself" in text
+
+
+def test_structure_import_search_and_capture(app_with_question, db_path, tmp_path):
+    csv = tmp_path / "core.csv"
+    csv.write_text(
+        "MOF Name,DOI,Formula\n"
+        "Zn-MOF-test,10.9999/zn-mof,C8H4O4Zn\n"
+    )
+    at = app_with_question
+    _open_sources_page(at)
+    by_key(at.selectbox, "struct_provider").set_value("core_mof_2019")
+    by_key(at.text_input, "struct_csv_path").set_value(str(csv))
+    by_key(at.button, "struct_import").click()
+    at.run()
+    assert any("[core_mof_2019]: 1 new" in s.value for s in at.success)
+
+    by_key(at.text_input, "struct_query").set_value("Zn-MOF")
+    by_key(at.button, "struct_search").click()
+    at.run()
+    text = all_text(at)
+    assert "Zn-MOF-test" in text and "10.9999/zn-mof" in text
+    assert "leads, not verified samples" in text
+
+    by_key(at.button, "capture_struct_1").click()
+    at.run()
+    assert any("captured as reference #1" in s.value for s in at.success)
+    refs = list_references(connect(db_path))
+    assert len(refs) == 1
+    assert "structure index [core_mof_2019]" in refs[0].supplied_input

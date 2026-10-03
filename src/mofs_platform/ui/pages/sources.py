@@ -34,6 +34,16 @@ from mofs_platform.domain.search import (
     list_runs,
     run_active_search,
 )
+from mofs_platform.domain.structures import (
+    PROVIDERS as STRUCTURE_PROVIDERS,
+)
+from mofs_platform.domain.structures import (
+    StructureValidationError,
+    capture_structure_reference,
+    count_structures,
+    import_structure_csv,
+    search_structures,
+)
 from mofs_platform.ui._widgets import esc
 
 SOURCES_PAGE_TITLE = "Sources"
@@ -364,4 +374,102 @@ def render_sources_page(conn) -> None:
             "auto-paging is deliberately out of scope; run again with edited "
             "terms to widen). This respects provider rate limits (issue #16 "
             "failure taxonomy)."
+        )
+
+    st.subheader("Structure lookup (D12: CoRE MOF 2019 first)")
+    _render_structure_section(conn)
+
+
+def _render_structure_section(conn) -> None:
+    """Structure lookup (issue #24, D12 slice 1): a provider-attributed
+    index imported from files the researcher supplies — no fetch route.
+    Capturing a structure's DOI goes through the attributed reference flow."""
+    total = count_structures(conn)
+    if total:
+        st.caption(
+            f"Index: {total} structure record(s) across providers: "
+            + ", ".join(
+                f"{p} ({count_structures(conn, p)})"
+                for p in STRUCTURE_PROVIDERS
+                if count_structures(conn, p)
+            )
+        )
+    else:
+        st.caption(
+            "The index is empty. Download the CoRE MOF 2019 deposit from "
+            "Zenodo (record 4086443), export its summary spreadsheet as CSV, "
+            "and import it below. The tool never downloads anything itself — "
+            "the file comes from you, and the import is attributed."
+        )
+    provider = st.selectbox(
+        "Provider of the CSV", list(STRUCTURE_PROVIDERS), key="struct_provider"
+    )
+    csv_path = st.text_input(
+        "Path to the CSV file (local — no upload needed)",
+        key="struct_csv_path",
+        placeholder="e.g. data/imports/core_mof_2019.csv",
+    )
+    if st.button("Import CSV into the index", key="struct_import"):
+        try:
+            report = import_structure_csv(
+                conn, csv_path, provider,
+                st.session_state.get("ref_contributor") or "Mohammed (owner)",
+            )
+            st.session_state["flash"] = (
+                f"Imported [{provider}]: {report['inserted']} new, "
+                f"{report['updated']} updated — attributed to "
+                f"{report['contributor']}."
+            )
+            st.rerun()
+        except StructureValidationError as exc:
+            st.error(str(exc))
+
+    query = st.text_input(
+        "Search the structure index (name / formula / external id)",
+        key="struct_query",
+        placeholder="e.g. Zn, CoCoZn, IRMOF — at least 2 characters",
+    )
+    if st.button("Search structures", key="struct_search"):
+        try:
+            results = search_structures(conn, query)
+            st.session_state["struct_results"] = [
+                {
+                    "id": r.id, "provider": r.provider, "name": r.name,
+                    "formula": r.formula, "doi": r.doi, "external_id": r.external_id,
+                }
+                for r in results
+            ]
+        except StructureValidationError as exc:
+            st.error(str(exc))
+    results = st.session_state.get("struct_results") or []
+    if results:
+        st.markdown(f"**{len(results)} structure record(s)** — leads, not verified samples")
+        for r in results:
+            st.markdown(
+                f"- **{r['name']}**"
+                + (f" ({r['formula']})" if r["formula"] else "")
+                + f" — `{r['provider']}`"
+                + (f" — id: {r['external_id']}" if r["external_id"] else "")
+                + (f" — DOI: {r['doi']}" if r["doi"] else " — DOI: `unknown`")
+            )
+            if r["doi"] and st.button(
+                "Capture as reference", key=f"capture_struct_{r['id']}"
+            ):
+                try:
+                    _rec, source_id = capture_structure_reference(
+                        conn, r["id"],
+                        st.session_state.get("ref_contributor") or "Mohammed (owner)",
+                    )
+                    st.session_state["flash"] = (
+                        f"Structure #{r['id']} captured as reference #{source_id} "
+                        "with structure provenance — a lead like any other."
+                    )
+                    st.rerun()
+                except StructureValidationError as exc:
+                    st.error(str(exc))
+        st.caption(
+            "A structure record is metadata about a published structure — it "
+            "never establishes that a sample was made, or that it was tested. "
+            "The reference remains a lead; identity questions belong to the "
+            "Samples & identity relations."
         )
