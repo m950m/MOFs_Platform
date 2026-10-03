@@ -10,6 +10,7 @@ import sqlite3
 from dataclasses import dataclass
 
 PROVIDER_CROSSREF = "crossref"
+PROVIDER_AI = "zai-glm"
 
 # Reserved vocabulary (migration CHECK constraint, not yet produced):
 #   outcome 'restricted' and kind 'manual_capture' land with issue #16
@@ -24,6 +25,7 @@ NEXT_STEPS = {
     "bad_response": "Retry later; nothing was changed.",
     "bad_input": "Correct the DOI and try again.",
     "restricted": "Use the permitted access route shown with the reference.",
+    "no_key": "Configure the session API key first — nothing was sent.",
 }
 
 
