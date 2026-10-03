@@ -441,6 +441,7 @@ def _render_structure_section(conn) -> None:
                 {
                     "id": r.id, "provider": r.provider, "name": r.name,
                     "formula": r.formula, "doi": r.doi, "external_id": r.external_id,
+                    "extra": r.extra_json,
                 }
                 for r in results
             ]
@@ -457,6 +458,11 @@ def _render_structure_section(conn) -> None:
                 + (f" — id: {r['external_id']}" if r["external_id"] else "")
                 + (f" — DOI: {r['doi']}" if r["doi"] else " — DOI: `unknown`")
             )
+            if r.get("extra"):
+                # Computed/context properties ride along from the provider CSV
+                # (e.g. QMOF band gaps). They are theory-stream metadata about
+                # a structure record — never measured lab evidence (D11).
+                st.markdown(f"  - `{r['provider']}` record properties: {r['extra']}")
             if r["doi"] and st.button(
                 "Capture as reference", key=f"capture_struct_{r['id']}"
             ):
