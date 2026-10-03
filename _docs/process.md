@@ -52,3 +52,36 @@ not happen.
 GitHub Issues (`m950m/MOFs_Platform/issues`) are the single active backlog;
 `_docs/tasks.md` is a migration-time index only. Handoff notes and verdicts are
 recorded as issue comments with dates.
+
+## Delivery gates (added 2026-10-02, owner decision after guided session 001)
+
+Every code-bearing change follows this sequence — no exceptions, no drive-bys:
+
+1. **Issue:** the work exists as a GitHub issue (or a reopen) with written
+   acceptance criteria.
+2. **Plan-first:** an execution plan is posted as a comment on the issue
+   BEFORE any code — scope, files, tests, exclusions.
+3. **Branch:** all work happens on `task-NNN-slug`; direct commits to `main`
+   are prohibited.
+4. **Small continuous steps:** each step is its own commit on the branch, so
+   the owner can review the trail retroactively (full-delegation mode,
+   recorded 2026-10-02: gates run autonomously; the owner reviews after the
+   fact instead of approving each step in advance).
+5. **Spec-compliance review (the supervisor):** an independent review agent
+   receives the issue text + approved plan + the diff, and its ONLY job is to
+   compare implementation against specification — flagging any addition,
+   omission, or behavior change not in the spec. Its report lands on the
+   issue before anything merges.
+6. **QA:** an independent QA agent verifies each acceptance criterion with
+   PASS/FAIL evidence (existing role).
+7. **Merge + close:** after both reports are clean, the PR merges; only then
+   does the issue close. Findings discovered mid-work become issue comments
+   + explicit decisions, never silent scope changes.
+
+## Number-stream separation (owner mandate, 2026-10-02)
+
+Laboratory-measured numbers and industry/reference numbers are **separate
+streams, never merged into one verdict** — the same rule that keeps HER and
+OER evidence separate. A comparison may DISPLAY both streams side by side
+with their provenance; it may not collapse them, average them, or let one
+override the other. Recorded for issue #17 and binding on #18 aggregation.

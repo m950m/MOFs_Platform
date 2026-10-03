@@ -45,6 +45,6 @@ Mohammed; he holds every scientific and product decision.
 - `_docs/plan.md` — specification (sections 0–10 authoritative; appendices historical)
 - `_docs/tasks.md` + GitHub Issues — active backlog
 - `_docs/decision-register.md` — owner decision entries (owner-written only)
-- `_docs/process.md` — role workflow and stop rules
+- `_docs/process.md` — role workflow, stop rules, and the binding delivery gates (plan-first, task branches, spec-compliance review before merge; no direct commits to main)
 - `_docs/testing-guidelines.md` / `_docs/design-system.md` — implementation guidance (read before writing tests/UI)
 - `_docs/proposals/` — proposed spec, diagrams, agent execution plan

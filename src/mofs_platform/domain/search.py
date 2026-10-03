@@ -9,6 +9,7 @@ every retry is a manual researcher action, and `no_hit` never means
 "the material is unstudied".
 """
 
+import json
 import sqlite3
 from dataclasses import dataclass
 
@@ -62,6 +63,7 @@ class StoredHit:
     dismissed_by: str | None
     dismiss_reason: str | None
     captured_source_id: int | None
+    criteria: dict[str, bool | None]
     created_at: str
 
 
@@ -73,6 +75,16 @@ def _row_to_run(row: sqlite3.Row) -> SearchRun:
     )
 
 
+def _parse_criteria(raw: str | None) -> dict[str, bool | None]:
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return {str(k): (None if v is None else bool(v)) for k, v in data.items()}
+    except (json.JSONDecodeError, AttributeError):
+        return {}
+
+
 def _row_to_hit(row: sqlite3.Row) -> StoredHit:
     return StoredHit(
         id=row["id"], run_id=row["run_id"], provider=row["provider"],
@@ -80,7 +92,9 @@ def _row_to_hit(row: sqlite3.Row) -> StoredHit:
         container=row["container"], her_token=bool(row["her_token"]),
         oer_token=bool(row["oer_token"]), status=row["status"],
         dismissed_by=row["dismissed_by"], dismiss_reason=row["dismiss_reason"],
-        captured_source_id=row["captured_source_id"], created_at=row["created_at"],
+        captured_source_id=row["captured_source_id"],
+        criteria=_parse_criteria(row["criteria_json"]),
+        created_at=row["created_at"],
     )
 
 
@@ -106,6 +120,47 @@ def prepare_query(provider: str, query_text: str) -> str:
     if provider == "openalex":
         clean = clean.replace("?", "").replace("*", "").strip()
     return clean
+
+
+def extract_criteria(conn: sqlite3.Connection) -> dict[str, str | None]:
+    """Mechanical, fully documented extraction of per-hit criteria from the
+    saved question (issue #16 completion). Returns {criterion_text: field}
+    where field names where the phrase came from. Fragments are the
+    comma/semicolon/newline-separated pieces of the owner-entered
+    hard_requirements and preferences fields, each kept verbatim (3+ chars).
+    Nothing is invented: an empty field contributes no criteria, and hits
+    from runs where a field was empty are recorded with that criterion as
+    absent — the UI renders it as `unknown`."""
+    criteria: dict[str, str | None] = {}
+    row = conn.execute(
+        "SELECT hard_requirements, preferences FROM question ORDER BY id LIMIT 1"
+    ).fetchone()
+    if row is None:
+        return criteria
+    for field in ("hard_requirements", "preferences"):
+        text = row[field]
+        if not text or not text.strip():
+            continue
+        for fragment in text.replace("\n", ",").replace(";", ",").split(","):
+            clean = fragment.strip()
+            if len(clean) >= 3 and clean.lower() not in (
+                k.lower() for k in criteria
+            ):
+                criteria[clean] = field
+    return criteria
+
+
+def match_criteria(
+    title: str | None, criteria: dict[str, str | None]
+) -> dict[str, bool | None]:
+    """Check each extracted criterion phrase against a hit title,
+    case-insensitively. The result is stored per hit at run time. A hit with
+    no title in the provider metadata yields None per criterion — recorded
+    as `unknown`, never as a match or a miss."""
+    if title is None or not title.strip():
+        return {phrase: None for phrase in criteria}
+    lowered = title.lower()
+    return {phrase: phrase.lower() in lowered for phrase in criteria}
 
 
 def _adapter(provider: str, query: str, mailto: str | None):
@@ -164,12 +219,15 @@ def run_active_search(
                 (provider, clean_query, scope, len(result), NEXT_STEPS["success"]),
             )
             run_id = int(cur.lastrowid)
+            criteria = extract_criteria(conn)
             for hit in result:
                 conn.execute(
                     "INSERT INTO search_hit (run_id, provider, doi, title, issued_year, "
-                    "container, her_token, oer_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    "container, her_token, oer_token, criteria_json) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (run_id, provider, hit.doi, hit.title, hit.issued_year,
-                     hit.container, int(hit.her_token), int(hit.oer_token)),
+                     hit.container, int(hit.her_token), int(hit.oer_token),
+                     json.dumps(match_criteria(hit.title, criteria))),
                 )
     except sqlite3.Error as exc:
         raise SearchPersistenceError(

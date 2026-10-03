@@ -157,3 +157,20 @@ def test_openalex_search_timeout_and_offline():
 
     result = openalex.search_works("q", None, transport=_transport(offline_handler))
     assert isinstance(result, SearchFailure) and result.kind == "offline"
+
+
+def test_title_tokens_match_spelled_out_phrases_not_only_acronyms():
+    """Live smoke finding (issue #16): a real Crossref hit titled
+    'Metal–organic frameworks for hydrogen evolution reaction and oxygen
+    evolution reaction' showed 'HER token: no' because only acronyms were
+    matched. The spelled-out phrases now count for the same stream."""
+    from mofs_platform.sources.search_common import title_tokens
+
+    her, oer = title_tokens(
+        "Metal-organic frameworks for hydrogen evolution reaction and oxygen "
+        "evolution reaction"
+    )
+    assert her and oer
+    assert title_tokens("A conductive MOF for HER and OER") == (True, True)
+    assert title_tokens("Unrelated title") == (False, False)
+    assert title_tokens(None) == (False, False)

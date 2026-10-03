@@ -281,6 +281,28 @@ def render_sources_page(conn) -> None:
                         ),
                         f"- Status: `{hit.status}`",
                     ]
+                    if hit.criteria:
+                        for phrase, matched in hit.criteria.items():
+                            if matched is None:
+                                lines.append(
+                                    f"- Criterion from your question — "
+                                    f"'{esc(phrase)}': `unknown` (no title in "
+                                    "the provider metadata)"
+                                )
+                            else:
+                                lines.append(
+                                    f"- Criterion from your question — "
+                                    f"'{esc(phrase)}': "
+                                    + ("**matched in title**" if matched
+                                       else "not in title (a metadata miss is "
+                                       "not a failure)")
+                                )
+                    else:
+                        lines.append(
+                            "- Per-criterion check: `unknown` — the run predates "
+                            "the per-criterion check or the saved question has no "
+                            "hard requirements / preferences recorded."
+                        )
                     st.markdown("\n".join(lines))
                     c_cap, c_dis = st.columns(2)
                     with c_cap:
@@ -336,4 +358,10 @@ def render_sources_page(conn) -> None:
             "`no_hit` never means the material is unstudied. A metadata hit never "
             "claims experimental preparation or measured performance. Prohibited "
             "content is never fetched and no provider beyond D9 is used."
+        )
+        st.caption(
+            "Search scope: one polite page per run (8 hits, a single request — "
+            "auto-paging is deliberately out of scope; run again with edited "
+            "terms to widen). This respects provider rate limits (issue #16 "
+            "failure taxonomy)."
         )

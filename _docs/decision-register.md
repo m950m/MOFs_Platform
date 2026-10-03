@@ -22,6 +22,8 @@ but never fill an entry, treat silence as approval, or edit a recorded decision.
 | D9 | Permitted search sources for active search (#16) | Metadata-only scholarly search consistent with the D2 contract (no full text): **Crossref REST `/works` queries + OpenAlex `/works` queries**, both polite-pool (contact e-mail), typed failures, transport-injected adapters, every hit a lead. | **Approved — Crossref + OpenAlex** (owner selection via agent decision session; decided immediately after guided session 001) | 2026-10-02 |
 | D10 | AI service for question refinement (#15) | Provider-agnostic adapter (same pattern as the Crossref adapter: injected transport, typed failures, offline tests); **first adapter: Z.ai GLM API** (OpenAI-compatible endpoint). The AI suggests question wording/reaction/condition refinements; the owner accepts or edits — the tool never silently rewrites the saved question. | **Approved — Z.ai GLM API first** (owner selection via agent decision session) | 2026-10-02 |
 
+| D11 | Number-stream separation: laboratory vs industry/reference numbers | Laboratory-measured numbers and industry/reference numbers are **separate streams, never merged into one verdict** — same rule as HER/OER separation. Comparisons may display both side by side with provenance; may not collapse, average, or let one override the other. Binding on #17 and #18 aggregation. | **Owner mandate under full delegation** (2026-10-02; recorded during task-016-completion) | 2026-10-02 |
+
 Gates: **D2 + D3 unblock issue #3**; D1 unblocks #4; D4–D7 are needed before their
 corresponding issues (#11, #8, #4–#13, #12) — see `proposals/diagrams.md` §5.
 **D9 unblocks #16** (active search); **D10 unblocks #15** (AI question refinement).

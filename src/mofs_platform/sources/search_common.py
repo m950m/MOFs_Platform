@@ -13,9 +13,13 @@ PROVIDERS = ("crossref", "openalex")
 
 # Case-sensitive reaction acronyms (same convention as the hints rules):
 # a token in the title is a metadata fact about the title, never evidence
-# that the paper reports HER or OER measurements.
+# that the paper reports HER or OER measurements. The spelled-out phrases
+# are matched case-insensitively so titles that never use the acronym are
+# still counted for the same stream (issue #16 completion).
 HER_TOKEN = "HER"
 OER_TOKEN = "OER"
+HER_PHRASE = "hydrogen evolution reaction"
+OER_PHRASE = "oxygen evolution reaction"
 
 
 @dataclass(frozen=True)
@@ -36,7 +40,10 @@ class SearchFailure:
 
 def title_tokens(title: str | None) -> tuple[bool, bool]:
     text = title or ""
-    return HER_TOKEN in text, OER_TOKEN in text
+    lowered = text.lower()
+    her = HER_TOKEN in text or HER_PHRASE in lowered
+    oer = OER_TOKEN in text or OER_PHRASE in lowered
+    return her, oer
 
 
 def normalize_doi(raw: str | None) -> str | None:

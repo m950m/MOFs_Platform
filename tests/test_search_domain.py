@@ -158,3 +158,74 @@ def test_openalex_wildcards_stripped_and_recorded_as_sent(conn_with_question, mo
     assert sent["sent_query"] == stripped  # adapter got the normalized text
     assert run.query_text == stripped  # run recorded the sent text, verbatim
     assert failure.kind == "no_hit"
+
+
+# --- per-criterion matching (issue #16 completion) --------------------------
+
+
+@pytest.fixture
+def conn_with_requirements(db_path):
+    conn = connect(db_path)
+    save_question(conn, Question(
+        wording="Which conductive MOFs work for both HER and OER in water splitting?",
+        hard_requirements="conductive MOF, stability in acidic electrolyte",
+        preferences="nickel based,  2D structure",
+    ))
+    return conn
+
+
+def test_extract_criteria_is_mechanical_and_documented(conn_with_requirements):
+    from mofs_platform.domain.search import extract_criteria
+
+    criteria = extract_criteria(conn_with_requirements)
+    # fragments are verbatim, trimmed; no invented terms
+    assert criteria == {
+        "conductive MOF": "hard_requirements",
+        "stability in acidic electrolyte": "hard_requirements",
+        "nickel based": "preferences",
+        "2D structure": "preferences",
+    }
+
+
+def test_extract_criteria_empty_fields_contribute_nothing(db_path):
+    from mofs_platform.domain.search import extract_criteria
+
+    conn = connect(db_path)
+    save_question(conn, Question(wording="Q"))  # no requirements/preferences
+    assert extract_criteria(conn) == {}
+
+
+def test_match_criteria_case_insensitive_phrases():
+    from mofs_platform.domain.search import match_criteria
+
+    criteria = {"conductive MOF": "hard_requirements", "Nickel Based": "preferences"}
+    result = match_criteria(
+        "A highly CONDUCTIVE mof with NICKEL BASED sites", criteria
+    )
+    assert result == {"conductive MOF": True, "Nickel Based": True}
+    miss = match_criteria("Unrelated title", criteria)
+    assert miss == {"conductive MOF": False, "Nickel Based": False}
+
+
+def test_run_stores_criteria_at_run_time(conn_with_requirements, monkeypatch):
+    monkeypatch.setattr(
+        "mofs_platform.sources.crossref.search_works",
+        lambda *a, **k: [crossref.SearchHit(
+            doi="10.9999/crit", title="A conductive MOF with nickel based sites",
+            issued_year="2026", container="J", her_token=True, oer_token=True,
+        )],
+    )
+    run, _ = run_active_search(
+        conn_with_requirements, "crossref", "q", "owner_edited"
+    )
+    hit = list_hits(conn_with_requirements, run.id)[0]
+    assert hit.criteria["conductive MOF"] is True
+    assert hit.criteria["stability in acidic electrolyte"] is False
+    assert hit.criteria["nickel based"] is True
+    # later question edits must NOT retroactively change the stored run
+    from mofs_platform.domain.questions import get_question
+    from mofs_platform.domain.questions import save_question as sq
+    q = get_question(conn_with_requirements)
+    sq(conn_with_requirements, Question(wording=q.wording, hard_requirements="changed"))
+    hit_after = list_hits(conn_with_requirements, run.id)[0]
+    assert hit_after.criteria["conductive MOF"] is True  # frozen at run time
