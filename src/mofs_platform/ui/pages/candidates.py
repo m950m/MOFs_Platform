@@ -158,7 +158,7 @@ def _render_compounds_section(conn) -> None:
                 framework_key=st.session_state.get("cp_key"),
             )
             st.session_state["flash"] = (
-                f"Compound #{c.id} '{c.canonical_name}' created — grouping is "
+                f"Compound #{c.id} '{esc(c.canonical_name)}' created — grouping is "
                 "manual and reasoned, never a merge (D5)."
             )
             st.rerun()
@@ -296,6 +296,6 @@ def _render_compounds_section(conn) -> None:
                 st.error(str(exc))
     if profile.events:
         st.caption("Audit: " + " · ".join(
-            f"{e['action']} by {e['actor'] or 'unknown'} at {e['changed_at']}"
+            f"{e['action']} by {esc(e['actor']) or 'unknown'} at {e['changed_at']}"
             for e in profile.events
         ))

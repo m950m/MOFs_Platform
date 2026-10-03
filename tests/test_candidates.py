@@ -190,10 +190,11 @@ def test_compound_profile_ui_flow(run_app, conn_with_fixture):
     keyed(at.button, "cp_create").click()
     at.run()
     assert any("never a merge" in s.value for s in at.success)
-    text = all_text(at).replace("\\", "")
-    # injection payload renders inert (escaped, no link/bold structure)
+    raw = all_text(at)
+    text = raw.replace("\\", "")
+    # injection payload renders verbatim (escaped) — never as live markdown
     assert "Compound-A *[b](http://e)*" in text
-    assert "](http://e)" not in text.replace("\\", "").split("Compound-A")[1][:60] or True
+    assert "](http://e)" not in raw  # no unescaped link structure in output
 
     keyed(at.button, "cp_open").click()
     at.run()
