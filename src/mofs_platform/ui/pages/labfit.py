@@ -161,23 +161,23 @@ def _render_number_streams(conn) -> None:
             lab = comp["laboratory"]
             st.markdown(
                 f"**Reaction: {comp['reaction']}** — laboratory: sample "
-                f"{esc(lab['sample'])}: {esc(lab['value'])} {esc(lab['unit']) or ''} "
-                f"({esc(lab['protocol']) or 'protocol `unknown`'})"
+                f"{esc(lab['sample'])}: {esc(lab['value'])} {(esc(lab['unit']) if lab['unit'] else '')} "
+                f"({(esc(lab['protocol']) if lab['protocol'] else 'protocol `unknown`')})"
             )
             st.markdown(
                 f"- Laboratory conditions: medium {esc(lab['medium']) or '`unknown`'} "
-                f"— reference {esc(lab['reference_convention']) or '`unknown`'} — "
-                f"loading {esc(lab['loading']) or '`unknown`'} — duration "
-                f"{esc(lab['duration']) or '`unknown`'} — loc {esc(lab['location']) or '`unknown`'}"
+                f"— reference {(esc(lab['reference_convention']) if lab['reference_convention'] else '`unknown`')} — "
+                f"loading {(esc(lab['loading']) if lab['loading'] else '`unknown`')} — duration "
+                f"{(esc(lab['duration']) if lab['duration'] else '`unknown`')} — loc {(esc(lab['location']) if lab['location'] else '`unknown`')}"
             )
             if comp["industry_reference"]:
                 for ref in comp["industry_reference"]:
                     st.markdown(
                         f"- Industry reference: {esc(ref['label'])} — "
-                        f"{esc(ref['value'])} {esc(ref['unit']) or ''} — "
-                        f"conditions: {esc(ref['conditions_note']) or '`unknown`'} — "
-                        f"source: {esc(ref['source_citation']) or '`unknown`'} "
-                        f"({esc(ref['source_year']) or 'year `unknown`'})"
+                        f"{esc(ref['value'])} {(esc(ref['unit']) if ref['unit'] else '')} — "
+                        f"conditions: {(esc(ref['conditions_note']) if ref['conditions_note'] else '`unknown`')} — "
+                        f"source: {(esc(ref['source_citation']) if ref['source_citation'] else '`unknown`')} "
+                        f"({(esc(ref['source_year']) if ref['source_year'] else 'year `unknown`')})"
                     )
             else:
                 st.markdown(
@@ -194,18 +194,18 @@ def _render_number_streams(conn) -> None:
         st.markdown(f"**Laboratory stream ({len(lab_rows)} rows):**")
         for n in lab_rows:
             st.markdown(
-                f"- {esc(n.label)}: {esc(n.value)} {esc(n.unit) or ''} "
-                f"({n.reaction}) — {esc(n.conditions_note) or 'conditions `unknown`'} "
+                f"- {esc(n.label)}: {esc(n.value)} {(esc(n.unit) if n.unit else '')} "
+                f"({n.reaction}) — {(esc(n.conditions_note) if n.conditions_note else 'conditions `unknown`')} "
                 f"— by {esc(n.contributor)}"
             )
     if industry_rows:
         st.markdown(f"**Industry reference stream ({len(industry_rows)} rows):**")
         for n in industry_rows:
             st.markdown(
-                f"- {esc(n.label)}: {esc(n.value)} {esc(n.unit) or ''} "
-                f"({n.reaction}) — {esc(n.conditions_note) or 'conditions `unknown`'} "
-                f"— source: {esc(n.source_citation) or 'see reference'} "
-                f"({esc(n.source_year) or 'year `unknown`'}) — by {esc(n.contributor)}"
+                f"- {esc(n.label)}: {esc(n.value)} {(esc(n.unit) if n.unit else '')} "
+                f"({n.reaction}) — {(esc(n.conditions_note) if n.conditions_note else 'conditions `unknown`')} "
+                f"— source: {(esc(n.source_citation) if n.source_citation else 'see reference')} "
+                f"({(esc(n.source_year) if n.source_year else 'year `unknown`')}) — by {esc(n.contributor)}"
             )
     st.warning(CAVEAT)
 
