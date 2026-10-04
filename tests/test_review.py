@@ -355,3 +355,46 @@ def test_correct_sample_rejects_nonnumeric_parent(conn_with_sample):
                        derived_from_sample_id="not-a-number")  # type: ignore[arg-type]
     assert "must be an integer" in str(exc.value)
     assert list_review_events(conn, "sample_record", sample_id) == []
+
+
+# --- conflict resolution (strict-audit BLOCKING fix, migration 0018) --------
+
+
+def test_resolve_conflict_persists_event_and_resets_states(conn_with_assertion):
+    """The strict audit found resolve_conflict wrote action
+    'conflict_resolved', forbidden by the review_event CHECK since #11 —
+    every resolution attempt failed at persist time. This test pins the
+    working path end-to-end."""
+    from mofs_platform.domain.review import resolve_conflict
+
+    conn, _ref_id, asm_id = conn_with_assertion
+    first = record_assertion(conn, source_id=_ref_id, claim_type="property",
+                             claim_text="220 mV (synthetic)",
+                             conflicts_with=asm_id)
+    result = resolve_conflict(
+        conn, assertion_id=asm_id, resolver="Mohammed (owner)",
+        reason="double entry of the same claim",
+    )
+    assert result["resolved"] == sorted([asm_id, first.id])
+    events = conn.execute(
+        "SELECT action FROM review_event WHERE action = 'conflict_resolved'"
+    ).fetchall()
+    assert len(events) == 1
+    states = conn.execute(
+        "SELECT review_state FROM assertion ORDER BY id"
+    ).fetchall()
+    assert all(s["review_state"] == "needs_verification" for s in states)
+
+
+def test_resolve_conflict_requires_resolver_and_reason(conn_with_assertion):
+    from mofs_platform.domain.review import resolve_conflict
+
+    conn, _ref_id, asm_id = conn_with_assertion
+    record_assertion(conn, source_id=_ref_id, claim_type="property",
+                     claim_text="220 mV (synthetic)", conflicts_with=asm_id)
+    with pytest.raises(Exception) as exc:
+        resolve_conflict(conn, assertion_id=asm_id, resolver=None, reason=None)
+    assert "missing" in str(exc.value).lower()
+    assert conn.execute(
+        "SELECT COUNT(*) FROM review_event WHERE action = 'conflict_resolved'"
+    ).fetchone()[0] == 0
