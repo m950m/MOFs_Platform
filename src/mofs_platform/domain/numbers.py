@@ -193,3 +193,82 @@ CAVEAT = (
     "tool. There is no ranking and no meet/fail verdict: the researcher "
     "draws the conclusion."
 )
+
+
+def correct_number(
+    conn: sqlite3.Connection, number_id: int, *, editor: str | None,
+    reason: str | None, label: str | None = None, value: str | None = None,
+    unit: str | None = None, reaction: str | None = None,
+    conditions_note: str | None = None, source_citation: str | None = None,
+    source_year: str | None = None,
+) -> dict:
+    """Correct a recorded number row with full attribution (issue #17 edit
+    path). Blank = keep: unprovided fields keep their stored values. The
+    stream and source_id are NOT correctable — the stream defines which D11
+    stream a row belongs to (moving rows between streams is not offered),
+    and source_id is provenance. Every correction appends a review_event
+    with previous/updated snapshots in one transaction."""
+    import json as _json
+
+    row = conn.execute(
+        "SELECT * FROM reference_number WHERE id = ?", (number_id,)
+    ).fetchone()
+    if row is None:
+        raise NumberValidationError(f"Number row #{number_id} does not exist.")
+    clean_editor = _clean(editor)
+    clean_reason = _clean(reason)
+    missing = [n for n, v in (
+        ("editor (who is correcting)", clean_editor),
+        ("reason for the correction", clean_reason),
+    ) if not v]
+    if missing:
+        raise NumberValidationError(
+            "Correction rejected — missing: " + "; ".join(missing) + "."
+            " The saved history is untouched."
+        )
+    provided = {
+        "label": _clean(label), "value": _clean(value), "unit": _clean(unit),
+        "reaction": _clean(reaction),
+        "conditions_note": _clean(conditions_note),
+        "source_citation": _clean(source_citation),
+        "source_year": _clean(source_year),
+    }
+    if provided["reaction"] is not None and provided["reaction"] not in REACTIONS:
+        raise NumberValidationError(
+            f"Reaction must be one of {REACTIONS!r} — got {provided['reaction']!r}."
+        )
+    changes = {
+        field: value for field, value in provided.items()
+        if value is not None and value != row[field]
+    }
+    if not changes:
+        raise NumberValidationError(
+            "Correction rejected — nothing to change: every provided field "
+            "equals the stored value (blank means keep). The saved history "
+            "is untouched."
+        )
+    previous = {k: v for k, v in dict(row).items() if k != "created_at"}
+    updated = {**previous, **changes}
+    set_clause = ", ".join(f"{name} = ?" for name in changes)
+    try:
+        with conn:
+            conn.execute(
+                f"UPDATE reference_number SET {set_clause} WHERE id = ?",
+                (*changes.values(), number_id),
+            )
+            conn.execute(
+                "INSERT INTO review_event (entity_type, entity_id, action, "
+                "reviewer, reason, previous_json, updated_json) "
+                "VALUES ('reference_number', ?, 'corrected', ?, ?, ?, ?)",
+                (number_id, clean_editor, clean_reason,
+                 _json.dumps(previous, ensure_ascii=False),
+                 _json.dumps(updated, ensure_ascii=False)),
+            )
+    except sqlite3.Error as exc:
+        raise NumberPersistenceError(
+            f"Saving failed; the row is unchanged. ({exc})"
+        ) from exc
+    return {
+        "id": number_id, "changed_fields": sorted(changes),
+        "original_preserved_in_history": True,
+    }
