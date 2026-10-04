@@ -103,3 +103,130 @@ def test_injection_style_values_stored_as_data(conn_with_lab):
     assert conn.execute(
         "SELECT COUNT(*) FROM reference_number"
     ).fetchone()[0] == 1
+
+
+# --- number-row corrections (issue #17 edit path) ---------------------------
+
+
+def _add_industry_row(conn):
+    return add_number(
+        conn, stream="industry_reference", label="DOE target", value="0.2-2",
+        unit="A/cm2", reaction="HER", conditions_note="industrial scale",
+        source_citation="DOE Hydrogen Program", source_year="2026",
+        contributor="Mohammed (owner)",
+    )
+
+
+def test_correct_number_changes_fields_and_logs_history(conn_with_lab):
+    from mofs_platform.domain.numbers import correct_number
+
+    conn, _ref = conn_with_lab
+    row = _add_industry_row(conn)
+    result = correct_number(
+        conn, row.id, editor="Mohammed (owner)",
+        reason="year of the target revision", source_year="2027",
+    )
+    assert result["changed_fields"] == ["source_year"]
+    events = conn.execute(
+        "SELECT * FROM review_event WHERE entity_type = 'reference_number' "
+        "AND entity_id = ?", (row.id,)
+    ).fetchall()
+    assert len(events) == 1 and events[0]["action"] == "corrected"
+    assert '"2026"' in events[0]["previous_json"]
+    assert '"2027"' in events[0]["updated_json"]
+    updated = conn.execute(
+        "SELECT source_year FROM reference_number WHERE id = ?", (row.id,)
+    ).fetchone()["source_year"]
+    assert updated == "2027"
+
+
+def test_correct_number_blank_keeps_and_no_change_refused(conn_with_lab):
+    from mofs_platform.domain.numbers import correct_number
+
+    conn, _ref = conn_with_lab
+    row = _add_industry_row(conn)
+    with pytest.raises(NumberValidationError) as exc:
+        correct_number(conn, row.id, editor="Mohammed (owner)", reason="noop",
+                       label="DOE target")  # equals stored value
+    assert "nothing to change" in str(exc.value).lower()
+    kept = conn.execute(
+        "SELECT value, unit, conditions_note FROM reference_number WHERE id = ?",
+        (row.id,),
+    ).fetchone()
+    assert kept["value"] == "0.2-2" and kept["unit"] == "A/cm2"
+    assert conn.execute(
+        "SELECT COUNT(*) FROM review_event WHERE entity_type = 'reference_number'"
+    ).fetchone()[0] == 0
+
+
+def test_correct_number_validates_attribution_row_and_reaction(conn_with_lab):
+    from mofs_platform.domain.numbers import correct_number
+
+    conn, _ref = conn_with_lab
+    row = _add_industry_row(conn)
+    with pytest.raises(NumberValidationError) as e1:
+        correct_number(conn, row.id, editor=None, reason=None, value="9")
+    assert "editor" in str(e1.value)
+    with pytest.raises(NumberValidationError) as e2:
+        correct_number(conn, 999, editor="x", reason="y", value="9")
+    assert "does not exist" in str(e2.value)
+    with pytest.raises(NumberValidationError) as e3:
+        correct_number(conn, row.id, editor="x", reason="y", reaction="NRR")
+    assert "Reaction must be one of" in str(e3.value)
+    assert conn.execute(
+        "SELECT COUNT(*) FROM review_event WHERE entity_type = 'reference_number'"
+    ).fetchone()[0] == 0
+
+
+def test_correct_number_never_moves_stream_or_source(conn_with_lab):
+    """The stream defines which D11 stream a row belongs to; correct_number
+    offers no parameter to change it or the source pointer."""
+    import inspect
+
+    from mofs_platform.domain.numbers import correct_number
+
+    conn, _ref = conn_with_lab
+    row = _add_industry_row(conn)
+    params = inspect.signature(correct_number).parameters
+    assert "stream" not in params and "source_id" not in params
+    correct_number(conn, row.id, editor="x", reason="typo", value="0.2-2.0")
+    kept = conn.execute(
+        "SELECT stream, source_id FROM reference_number WHERE id = ?", (row.id,)
+    ).fetchone()
+    assert kept["stream"] == "industry_reference" and kept["source_id"] is None
+
+
+def test_migration_0017_preserves_history(db_path):
+    import sqlite3
+
+    from mofs_platform.db.connection import MIGRATIONS_DIR
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    pre = sorted(p for p in MIGRATIONS_DIR.glob("*.sql") if p.name < "0017")
+    assert pre[-1].name == "0016_number_streams.sql"
+    for path in pre:
+        conn.executescript(path.read_text(encoding="utf-8"))
+    conn.execute(
+        "INSERT INTO review_event (entity_type, entity_id, action, reviewer, "
+        "updated_json, created_at) VALUES ('assertion', 3, 'corrected', "
+        "'Mohammed (owner)', '{}', '2026-01-01 00:00:00')"
+    )
+    conn.commit()
+    conn.executescript(
+        (MIGRATIONS_DIR / "0017_number_corrections.sql").read_text(encoding="utf-8")
+    )
+    survived = conn.execute(
+        "SELECT * FROM review_event WHERE entity_id = 3"
+    ).fetchone()
+    assert survived is not None and survived["created_at"] == "2026-01-01 00:00:00"
+    conn.execute(
+        "INSERT INTO review_event (entity_type, entity_id, action, updated_json) "
+        "VALUES ('reference_number', 1, 'corrected', '{}')"
+    )
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO review_event (entity_type, entity_id, action, updated_json) "
+            "VALUES ('junk', 1, 'corrected', '{}')"
+        )
+    conn.close()

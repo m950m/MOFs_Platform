@@ -18,6 +18,7 @@ from mofs_platform.domain.numbers import (
     NumberValidationError,
     add_number,
     build_comparison,
+    correct_number,
     list_numbers,
 )
 from mofs_platform.ui._widgets import esc
@@ -208,6 +209,66 @@ def _render_number_streams(conn) -> None:
                 f"({(esc(n.source_year) if n.source_year else 'year `unknown`')}) — by {esc(n.contributor)}"
             )
     st.warning(CAVEAT)
+
+    _render_number_correction(conn)
+
+
+def _render_number_correction(conn) -> None:
+    """Correct a number row (issue #17 edit path): attributed, reasoned,
+    snapshots preserved. Blank = keep; the stream and source pointer are
+    immutable. Rejected corrections keep typed values."""
+    all_rows = list_numbers(conn, "laboratory") + list_numbers(conn, "industry_reference")
+    if not all_rows:
+        return
+    st.subheader("Correct a number row")
+    st.caption(
+        "Corrections are attributed and preserved: the old values stay in "
+        "the history with who changed them and why. Blank fields mean keep; "
+        "the stream and the source pointer are not correctable here."
+    )
+    options = {
+        n.id: f"#{n.id} [{n.stream}/{n.reaction}] {n.label}: {n.value} "
+              f"{n.unit or ''}".strip()
+        for n in all_rows
+    }
+    st.selectbox("Number row", list(options), key="nc_row",
+                 format_func=lambda k: options[k])
+    with st.form("number_correction_form"):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.text_input("Label (blank = keep)", key="nc_label")
+            st.text_input("Value (blank = keep)", key="nc_value")
+            st.text_input("Unit (blank = keep)", key="nc_unit")
+        with c2:
+            st.text_input("Conditions note (blank = keep)", key="nc_conditions")
+            st.text_input("Source citation (blank = keep)", key="nc_citation")
+            st.text_input("Source year (blank = keep)", key="nc_year")
+        st.text_input("Editor (who is correcting)", value="Mohammed (owner)",
+                      key="nc_editor")
+        st.text_area("Reason for the correction (required)", key="nc_reason",
+                     height=50)
+        st.form_submit_button("Save correction", key="nc_save", type="primary")
+    if st.session_state.get("nc_save"):
+        try:
+            result = correct_number(
+                conn, st.session_state.get("nc_row"),
+                editor=st.session_state.get("nc_editor"),
+                reason=st.session_state.get("nc_reason"),
+                label=st.session_state.get("nc_label"),
+                value=st.session_state.get("nc_value"),
+                unit=st.session_state.get("nc_unit"),
+                conditions_note=st.session_state.get("nc_conditions"),
+                source_citation=st.session_state.get("nc_citation"),
+                source_year=st.session_state.get("nc_year"),
+            )
+            st.session_state["flash"] = (
+                f"Number row #{result['id']} corrected "
+                f"({', '.join(result['changed_fields'])}; old → new kept in "
+                "history)."
+            )
+            st.rerun()
+        except NumberValidationError as exc:
+            st.error(str(exc))
 
 
 def _source_of(conn, sample_id) -> int:
