@@ -117,7 +117,7 @@ def test_no_live_markdown_survives_anywhere(seeded_app):
             selects = [s for s in at.selectbox if getattr(s, "key", "") == "fit_sample"]
             if selects and selects[0].options:
                 selects[0].set_value(selects[0].options[0])
-                assess = [b for b in at.button if getattr(b, "key", "") == "assess_fit"]
+                assess = [b for b in at.button if getattr(b, "key", "") == "run_fit"]
                 if assess:
                     assess[0].click()
                     at.run()
