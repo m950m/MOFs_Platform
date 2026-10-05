@@ -1,11 +1,13 @@
 """UI tests for the Sources page (issue #6)."""
 
+import json
+
 import pytest
 
 from conftest import all_text
 from mofs_platform.db.connection import connect
 from mofs_platform.domain.questions import Question, save_question
-from mofs_platform.domain.references import list_references
+from mofs_platform.domain.references import add_manual_reference, list_references
 from mofs_platform.sources import crossref
 
 
@@ -204,3 +206,55 @@ def test_structure_extras_render_as_theory_metadata(app_with_question, db_path, 
     text = all_text(at).replace("\\", "")  # esc() escapes markdown controls
     assert "`qmof` computed/context properties:" in text
     assert "Band Gap (eV)" in text and "1.42" in text
+
+
+# --- evidence packages (issue #19, ACs 1-4) ----------------------------------
+
+
+def test_package_export_and_reject_flow(app_with_question, db_path, tmp_path):
+    conn = connect(db_path)
+    add_manual_reference(conn, doi="10.9999/pkg-src", title="Package source",
+                         contributor="Mohammed (owner)")
+    conn.close()
+    at = app_with_question
+    _open_sources_page(at)
+    text = all_text(at)
+    assert "Evidence packages (offline collaboration" in text
+    assert "never merged" in text
+
+    # export → download payload
+    by_key(at.multiselect, "pkg_export_ids").set_value([1])
+    by_key(at.button, "pkg_export").click()
+    at.run()
+    # st.download_button is a DownloadButton element — not exposed via
+    # at.button; walk the tree for it
+    def walk(node):
+        for child in getattr(node, "children", {}).values():
+            yield child
+            yield from walk(child)
+    downloads = [e for e in walk(at.main)
+                 if type(e).__name__ == "DownloadButton"
+                 and getattr(e, "label", "") == "Download package JSON"]
+    assert len(downloads) == 1  # no error, the payload is ready to download
+
+    # import a hostile package → the FULL rejection list renders
+    bad = {
+        "package_format": "mofs-evidence-package", "schema_version": 7,
+        "exported_at": "2026-10-04T00:00:00", "contributor": {"name": "C"},
+        "rogue": 1,
+        "sources": [{"package_id": 1, "inspected_level": "abstract"}],
+        "samples": [{"package_id": 1, "source_package_id": 1,
+                     "designation": "X", "basis": "experimental",
+                     "merge_into_local_id": 1}],
+        "observations": [], "assertions": [], "compounds": [],
+    }
+    bad_path = tmp_path / "bad-package.json"
+    bad_path.write_text(json.dumps(bad), encoding="utf-8")
+    by_key(at.text_input, "pkg_import_path").set_value(str(bad_path))
+    by_key(at.button, "pkg_import_btn").click()
+    at.run()
+    text = all_text(at).replace("\\", "")  # esc() escapes markdown controls
+    assert "PACKAGE REJECTED — every reason:" in text
+    assert "schema_version must be 1" in text
+    assert "schema drift: unknown top-level keys ['rogue']" in text
+    assert "merge attempt" in text

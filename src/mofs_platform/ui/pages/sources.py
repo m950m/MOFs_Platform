@@ -6,9 +6,20 @@ failures are typed and honest ("no record found" never means "unstudied"),
 and a shared DOI never implies the same tested sample.
 """
 
+import json
+from pathlib import Path
+
 import streamlit as st
 
 from mofs_platform.domain.attempts import list_attempts
+from mofs_platform.domain.packages import (
+    FORMAT as PACKAGE_FORMAT,
+)
+from mofs_platform.domain.packages import (
+    PackageValidationError,
+    export_package,
+    import_package,
+)
 from mofs_platform.domain.questions import get_question
 from mofs_platform.domain.references import (
     _LEVEL_LABELS,
@@ -376,6 +387,9 @@ def render_sources_page(conn) -> None:
             "failure taxonomy)."
         )
 
+    st.subheader("Evidence packages (offline collaboration — issue #19)")
+    _render_packages_section(conn)
+
     st.subheader("Structure lookup (D12: CoRE MOF 2019 first)")
     _render_structure_section(conn)
 
@@ -484,3 +498,71 @@ def _render_structure_section(conn) -> None:
             "The reference remains a lead; identity questions belong to the "
             "Samples & identity relations."
         )
+
+
+def _render_packages_section(conn) -> None:
+    """Evidence packages (issue #19): attributed offline collaboration.
+    Export selected sources + dependents as schema-v1 JSON; import validates
+    strictly and lists EVERY rejection reason. Imported rows enter as
+    needs_verification attributed to the package contributor — never
+    auto-promoted, never merged."""
+    st.caption(
+        f"Format: `{PACKAGE_FORMAT}` schema v1 "
+        "(_docs/package-schema-v1.json). Export selects sources and their "
+        "dependents; import validates strictly — schema drift, missing "
+        "provenance, review-state overwrites, and merge attempts are "
+        "rejected with the full reason list. Imported rows enter as "
+        "`needs_verification` attributed to the package contributor and "
+        "coexist as separate records (never merged)."
+    )
+    refs = list_references(conn)
+    if refs:
+        selected = st.multiselect(
+            "Export sources (and their dependents)",
+            options=[r.id for r in refs],
+            format_func=lambda k: next(
+                f"#{r.id} — {r.title or r.doi}" for r in refs if r.id == k
+            ),
+            key="pkg_export_ids",
+        )
+        if st.button("Export package (JSON)", key="pkg_export"):
+            try:
+                package = export_package(conn, selected)
+                st.download_button(
+                    "Download package JSON",
+                    data=json.dumps(package, indent=2, ensure_ascii=False),
+                    file_name=f"evidence-package-v1-{selected}.json",
+                    mime="application/json",
+                    key="pkg_download",
+                )
+            except PackageValidationError as exc:
+                st.error(str(exc))
+    st.text_input(
+        "Path to a package JSON file (local)", key="pkg_import_path",
+        placeholder="e.g. data/imports/evidence-package.json",
+    )
+    if st.button("Import package", key="pkg_import_btn"):
+        try:
+            raw = Path(st.session_state.get("pkg_import_path") or "").read_text(
+                encoding="utf-8"
+            )
+        except OSError as exc:
+            st.error(f"Could not read the package file. ({exc})")
+        else:
+            try:
+                report = import_package(conn, raw)
+                st.session_state["flash"] = (
+                    f"Package imported: {report.sources} source(s), "
+                    f"{report.samples} sample(s), {report.observations} "
+                    f"observation(s), {report.assertions} assertion(s), "
+                    f"{report.compounds} compound(s) — attributed to "
+                    f"{report.contributor}, all `needs_verification`, all "
+                    "separate records."
+                )
+                st.rerun()
+            except PackageValidationError as exc:
+                st.error("PACKAGE REJECTED — every reason:")
+                for reason in exc.reasons:
+                    st.markdown(f"- {esc(reason)}")
+            except json.JSONDecodeError as exc:
+                st.error(f"The file is not valid JSON. ({exc})")
