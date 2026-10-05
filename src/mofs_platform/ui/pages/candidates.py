@@ -65,24 +65,25 @@ def render_candidates_page(conn) -> None:
         st.error(str(exc))
         return
 
-    st.markdown(f"### Candidate #{card.sample_id}: {card.designation}")
+    st.markdown(f"### Candidate #{card.sample_id}: {esc(card.designation)}")
     st.markdown(
         f"- Basis: `{card.basis}` — material class (composition as entered): "
-        f"{card.material_class or '`unknown`'}\n"
-        f"- Parent relation: {card.parent_relation or '`unknown`'}\n"
-        f"- Modifications/additions: {card.modifications or '`unknown`'}\n"
-        f"- Source: {card.source_label} — inspected level: {card.source_inspected_level}\n"
+        f"{esc(card.material_class) if card.material_class else '`unknown`'}\n"
+        f"- Parent relation: {esc(card.parent_relation) if card.parent_relation else '`unknown`'}\n"
+        f"- Modifications/additions: {esc(card.modifications) if card.modifications else '`unknown`'}\n"
+        f"- Source: {esc(card.source_label)} — inspected level: {card.source_inspected_level}\n"
         f"- Route outcomes for this source: "
         + (", ".join(f"`{r['outcome']}`" for r in card.route_outcomes) or "`unknown`")
     )
-    st.markdown(f"**Why it appeared:** {card.retrieval_reason}")
+    st.markdown(f"**Why it appeared:** {esc(card.retrieval_reason)}")
 
     st.subheader("Observations (per tested sample)")
     for ob in card.observations:
         gaps = ", ".join(ob["gaps"]) if ob["gaps"] else "none"
         st.markdown(
-            f"- `{ob['kind']}` {ob['value']} {ob['unit']} — sample #{ob['sample_id']} — "
-            f"location: {ob['evidence_location']}\n"
+            f"- `{ob['kind']}` {(esc(ob['value']) if ob['value'] else '`unknown`')} "
+            f"{esc(ob['unit']) if ob['unit'] else ''} — sample #{ob['sample_id']} — "
+            f"location: {(esc(ob['evidence_location']) if ob['evidence_location'] else '`unknown`')}\n"
             f"  - missing condition fields: {gaps} — these are displayed as gaps, "
             "not compared or ranked."
         )
@@ -91,8 +92,8 @@ def render_candidates_page(conn) -> None:
 
     st.subheader("Operating-state interpretations")
     for stt in card.operating_states:
-        st.markdown(f"- ({stt['stage']}) phase '{stt['phase']}' — {stt['epistemic']} "
-                    f"— location: {stt['evidence_location']}")
+        st.markdown(f"- ({stt['stage']}) phase '{(esc(stt['phase']) if stt['phase'] else '`unknown`')}' — {stt['epistemic']} "
+                    f"— location: {(esc(stt['evidence_location']) if stt['evidence_location'] else '`unknown`')}")
     if not card.operating_states:
         st.markdown("- `unknown` — no operating state recorded.")
 
@@ -102,8 +103,8 @@ def render_candidates_page(conn) -> None:
             f" — **CONFLICT with #{a['conflicts_with']}**" if a["conflicts_with"] else ""
         )
         st.markdown(
-            f"- Assertion #{a['id']} [{a['claim_type']}]: {a['claim_text']}\n"
-            f"  - location: {a['location']} — {a['epistemic']} — "
+            f"- Assertion #{a['id']} [{a['claim_type']}]: {esc(a['claim_text'])}\n"
+            f"  - location: {esc(a['location'])} — {a['epistemic']} — "
             f"review: `{a['review_state']}`{conflict}"
         )
     if card.conflicts:

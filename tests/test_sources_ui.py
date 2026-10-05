@@ -45,7 +45,7 @@ def test_manual_capture_creates_attributed_lead(app_with_question, db_path):
     by_key(at.button, "save_reference").click()
     at.run()
     assert any("Reference captured (lead)" in s.value for s in at.success)
-    text = all_text(at)
+    text = all_text(at).replace("\\", "")
     assert "Origin: `manual`" in text
     assert "Mohammed (owner)" in text
     refs = list_references(connect(db_path))
@@ -171,7 +171,7 @@ def test_structure_import_search_and_capture(app_with_question, db_path, tmp_pat
     by_key(at.text_input, "struct_query").set_value("Zn-MOF")
     by_key(at.button, "struct_search").click()
     at.run()
-    text = all_text(at)
+    text = all_text(at).replace("\\", "")  # esc() escapes markdown controls
     assert "Zn-MOF-test" in text and "10.9999/zn-mof" in text
     assert "leads, not verified samples" in text
 

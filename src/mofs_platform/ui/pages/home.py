@@ -6,6 +6,7 @@ from mofs_platform.domain.labprofile import list_capabilities
 from mofs_platform.domain.questions import get_question
 from mofs_platform.domain.references import list_references
 from mofs_platform.domain.search import list_runs
+from mofs_platform.ui._widgets import esc
 
 EMPTY_MARKER = "Empty / ready"
 READY_MARKER = "Ready — data recorded"
@@ -61,7 +62,7 @@ def render_home(conn) -> None:
         st.success(f"{READY_MARKER} — " + ", ".join(recorded) + ".")
         st.markdown(
             (
-                f"**Saved question:**\n\n> {question.wording}\n\n"
+                f"**Saved question:**\n\n> {esc(question.wording)}\n\n"
                 "Edit it under **Research question** in the sidebar.\n\n"
             )
             if question is not None

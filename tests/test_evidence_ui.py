@@ -55,7 +55,7 @@ def test_record_assertion_shows_full_provenance(app_with_reference, db_path):
     assert "Methods §2" in text
     assert "directly reported" in text
     assert "needs verification" in text
-    assert "Mohammed (owner)" in text
+    assert r"Mohammed \(owner\)" in text or "Mohammed (owner)" in text
     assert len(list_assertions(connect(db_path))) == 1
 
 

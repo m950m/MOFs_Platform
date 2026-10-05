@@ -21,9 +21,17 @@ def apply_migrations(conn: sqlite3.Connection) -> None:
     for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
         if path.name in applied:
             continue
-        conn.executescript(path.read_text(encoding="utf-8"))
-        conn.execute("INSERT INTO schema_migrations (filename) VALUES (?)", (path.name,))
-    conn.commit()
+        # Atomic per migration: executescript commits implicitly, so a crash
+        # mid-rebuild (after DROP, before RENAME) previously destroyed tables.
+        # Wrapping the script + the bookkeeping insert in one explicit
+        # transaction makes every migration all-or-nothing (strict audit).
+        script = (
+            "BEGIN IMMEDIATE;\n"
+            + path.read_text(encoding="utf-8")
+            + f"\nINSERT INTO schema_migrations (filename) VALUES ('{path.name}');\n"
+            + "COMMIT;"
+        )
+        conn.executescript(script)
 
 
 def connect(db_path: str | Path) -> sqlite3.Connection:

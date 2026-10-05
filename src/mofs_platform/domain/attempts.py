@@ -12,9 +12,9 @@ from dataclasses import dataclass
 PROVIDER_CROSSREF = "crossref"
 PROVIDER_AI = "zai-glm"
 
-# Reserved vocabulary (migration CHECK constraint, not yet produced):
-#   outcome 'restricted' and kind 'manual_capture' land with issue #16
-#   (active search) and #19 (contributor packages) respectively.
+# Reserved vocabulary: outcome 'restricted' and kind 'manual_capture' are
+# CHECK-permitted for future routes (#19 contributor packages); no producer
+# exists yet.
 NEXT_STEPS = {
     "success": "Metadata filled where missing; the reference remains a lead.",
     "no_hit": "Verify the DOI spelling or capture the reference manually — "

@@ -41,6 +41,7 @@ def test_migrations_are_idempotent(db_path):
         "0015_compound_profiles.sql",
         "0016_number_streams.sql",
         "0017_number_corrections.sql",
+        "0018_conflict_resolved.sql",
     ]
     second.close()
 
@@ -171,3 +172,38 @@ def test_save_failure_reports_and_preserves_previous(db_path):
     assert saved is not None
     assert saved.wording == "Original saved question"  # prior value intact
     readonly.close()
+
+
+def test_failed_migration_rolls_back_completely(tmp_path, monkeypatch):
+    """Strict-audit MAJOR fix: a migration that fails mid-way (e.g. after a
+    DROP) must leave the database exactly as it was — no destroyed tables,
+    no bookkeeping row — so a corrected retry applies cleanly."""
+    import sqlite3
+
+    from mofs_platform.db import connection as conn_mod
+
+    bad_dir = tmp_path / "migrations"
+    bad_dir.mkdir()
+    for name in ("0001_question.sql", "0002_lab_profile.sql"):
+        source = conn_mod.MIGRATIONS_DIR / name
+        (bad_dir / name).write_text(source.read_text(encoding="utf-8"))
+    (bad_dir / "0003_bad.sql").write_text(
+        "CREATE TABLE temp_probe (id INTEGER);\n"
+        "DROP TABLE question;\n"
+        "INSERT INTO no_such_table VALUES (1);\n"
+    )
+    monkeypatch.setattr(conn_mod, "MIGRATIONS_DIR", bad_dir)
+    db = tmp_path / "probe.db"
+    with pytest.raises(sqlite3.Error):
+        conn_mod.connect(db)
+    check = sqlite3.connect(str(db))
+    # rolled back: the probe table and the DROP never happened
+    tables = {r[0] for r in check.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'"
+    ).fetchall()}
+    assert "temp_probe" not in tables
+    assert "question" in tables  # survived — the DROP rolled back
+    assert check.execute(
+        "SELECT COUNT(*) FROM schema_migrations WHERE filename = '0003_bad.sql'"
+    ).fetchone()[0] == 0  # bookkeeping rolled back — retry is clean
+    check.close()

@@ -127,6 +127,7 @@ def import_structure_csv(
             rows.append(record)
 
     inserted = updated = 0
+    changes: list[dict] = []
     try:
         with conn:
             for record in rows:
@@ -137,6 +138,13 @@ def import_structure_csv(
                         (provider, record["external_id"]),
                     ).fetchone()
                 if existing is not None:
+                    previous = {
+                        k: v for k, v in dict(conn.execute(
+                            "SELECT * FROM structure_index WHERE id = ?",
+                            (existing["id"],),
+                        ).fetchone()).items()
+                        if k != "created_at"
+                    }
                     conn.execute(
                         "UPDATE structure_index SET name = ?, formula = ?, doi = ?, "
                         "file_ref = ?, extra_json = ? WHERE id = ?",
@@ -145,6 +153,10 @@ def import_structure_csv(
                          existing["id"]),
                     )
                     updated += 1
+                    changes.append({
+                        "id": existing["id"], "previous": previous,
+                        "updated": {**previous, **record},
+                    })
                 else:
                     conn.execute(
                         "INSERT INTO structure_index (provider, external_id, name, "
@@ -160,6 +172,7 @@ def import_structure_csv(
                 (json.dumps({
                     "provider": provider, "contributor": clean_contributor,
                     "inserted": inserted, "updated": updated, "csv": str(path),
+                    "updates": changes,
                 }),),
             )
     except sqlite3.Error as exc:

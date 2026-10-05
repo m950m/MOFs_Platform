@@ -230,3 +230,44 @@ def test_migration_0017_preserves_history(db_path):
             "VALUES ('junk', 1, 'corrected', '{}')"
         )
     conn.close()
+
+
+def test_migration_0013_preserves_route_attempts(db_path):
+    """Strict-audit MINOR: 0013 rebuilds route_attempt — a staged transition
+    must prove pre-existing rows survive byte-identically."""
+    import sqlite3
+
+    from mofs_platform.db.connection import MIGRATIONS_DIR
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    pre = sorted(p for p in MIGRATIONS_DIR.glob("*.sql") if p.name < "0013")
+    assert pre[-1].name == "0012_criteria_matching.sql"
+    for path in pre:
+        conn.executescript(path.read_text(encoding="utf-8"))
+    conn.execute(
+        "INSERT INTO route_attempt (provider, target, attempt_kind, outcome, "
+        "next_step, created_at) VALUES ('crossref', '10.9999/pre', "
+        "'crossref_enrichment', 'no_hit', 'n', '2026-01-01 00:00:00')"
+    )
+    conn.commit()
+    conn.executescript(
+        (MIGRATIONS_DIR / "0013_ai_refinement_attempts.sql").read_text(encoding="utf-8")
+    )
+    survived = conn.execute(
+        "SELECT * FROM route_attempt WHERE target = '10.9999/pre'"
+    ).fetchone()
+    assert survived is not None
+    assert survived["outcome"] == "no_hit"
+    assert survived["created_at"] == "2026-01-01 00:00:00"
+    # new vocabulary accepted, junk refused
+    conn.execute(
+        "INSERT INTO route_attempt (provider, target, attempt_kind, outcome) "
+        "VALUES ('zai-glm', 'question_refinement', 'ai_refinement', 'no_key')"
+    )
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO route_attempt (provider, target, attempt_kind, outcome) "
+            "VALUES ('x', 'y', 'bogus_kind', 'success')"
+        )
+    conn.close()

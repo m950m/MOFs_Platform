@@ -6,11 +6,10 @@ rule 2); unset scientific fields display as `unknown` and are never defaulted
 persists (issue #4: leave-edits-unsaved criterion).
 """
 
-import os
 
 import streamlit as st
 
-from mofs_platform.domain.attempts import NEXT_STEPS, PROVIDER_AI, record_attempt
+from mofs_platform.domain.attempts import NEXT_STEPS
 from mofs_platform.domain.hints import (
     HINT_RULES_DOCUMENTATION,
     question_hints,
@@ -24,29 +23,33 @@ from mofs_platform.domain.questions import (
     save_question,
 )
 from mofs_platform.domain.refinement import (
+    SUGGESTION_MODEL,
     VAGUE_TERMS_DOCUMENTATION,
+    GLMFailure,
+    GLMRefinement,
     mechanical_observations,
+    request_ai_suggestion,
 )
-from mofs_platform.sources import glm
+from mofs_platform.ui._widgets import esc
 
 PAGE_TITLE = "Research question"
 
 
 def _show_saved(question: Question, corrections: int) -> None:
     st.success(f"Saved question (last updated: {question.updated_at}).")
-    st.markdown(f"**Question wording:**\n\n> {question.wording}")
+    st.markdown(f"**Question wording:**\n\n> {esc(question.wording)}")
     left, right = st.columns(2)
     with left:
         st.subheader("Hard requirements", help="Must be met by a candidate.")
-        st.markdown(question.hard_requirements or "`unknown`")
+        st.markdown(esc(question.hard_requirements) if question.hard_requirements else "`unknown`")
     with right:
         st.subheader("Preferences", help="Nice to have; not required.")
-        st.markdown(question.preferences or "`unknown`")
+        st.markdown(esc(question.preferences) if question.preferences else "`unknown`")
     st.markdown(
-        f"- Reaction / application: {question.reactions or '`unknown`'}\n"
-        f"- Allowed material classes: {question.material_classes or '`unknown`'}\n"
-        f"- Relevant conditions: {question.conditions or '`unknown`'}\n"
-        f"- Meaning of improvement: {question.meaning_of_improvement or '`unknown`'}"
+        f"- Reaction / application: {esc(question.reactions) if question.reactions else '`unknown`'}\n"
+        f"- Allowed material classes: {esc(question.material_classes) if question.material_classes else '`unknown`'}\n"
+        f"- Relevant conditions: {esc(question.conditions) if question.conditions else '`unknown`'}\n"
+        f"- Meaning of improvement: {esc(question.meaning_of_improvement) if question.meaning_of_improvement else '`unknown`'}"
     )
     st.caption(
         f"{corrections} save event(s) recorded (first save + corrections). "
@@ -178,7 +181,7 @@ def _render_ai_section(conn, current: Question | None, applied: dict) -> None:
     st.subheader("AI refinement (optional — D10: Z.ai GLM)")
     st.caption(
         "Assistant route: Z.ai GLM chat endpoint (OpenAI-compatible), model "
-        f"`{glm.MODEL}`. ONLY the question's own saved fields are sent to the "
+        f"`{SUGGESTION_MODEL}`. ONLY the question's own saved fields are sent to the "
         "provider — nothing else leaves this machine. Every call is logged in "
         "the route-attempt audit. Failure kinds: no_key / bad_input / timeout "
         "/ offline / rate_limited / bad_response. Suggestions are `tool "
@@ -199,24 +202,8 @@ def _render_ai_section(conn, current: Question | None, applied: dict) -> None:
         if not enabled:
             st.warning("Enable the assistant first — nothing was sent.")
         else:
-            key = api_key.strip() or os.environ.get("MOFS_AI_API_KEY")
-            fields = {
-                "wording": current.wording,
-                "reactions": current.reactions,
-                "material_classes": current.material_classes,
-                "conditions": current.conditions,
-                "hard_requirements": current.hard_requirements,
-                "preferences": current.preferences,
-                "meaning_of_improvement": current.meaning_of_improvement,
-            }
-            result = glm.suggest_refinement(fields, key)
-            outcome = "success" if not isinstance(result, glm.GLMFailure) else result.kind
-            record_attempt(
-                conn, provider=PROVIDER_AI, target="question_refinement",
-                attempt_kind="ai_refinement", outcome=outcome,
-                note=None if outcome == "success" else result.detail,
-            )
-            if isinstance(result, glm.GLMFailure):
+            result = request_ai_suggestion(conn, current, api_key.strip() or None)
+            if isinstance(result, GLMFailure):
                 st.warning(
                     f"`{result.kind}` — {result.detail} Next step: "
                     f"{NEXT_STEPS.get(result.kind, 'none.')}"
@@ -224,14 +211,14 @@ def _render_ai_section(conn, current: Question | None, applied: dict) -> None:
             else:
                 st.session_state["ai_suggestion"] = result
     suggestion = st.session_state.get("ai_suggestion")
-    if isinstance(suggestion, glm.GLMRefinement):
+    if isinstance(suggestion, GLMRefinement):
         st.info(
             "**`tool inference` — suggestion from the assistant ("
-            f"`{glm.MODEL}`).** Nothing is applied until you press Apply and "
-            "then Save." + (f"\n\n**Why:** {suggestion.notes}" if suggestion.notes else "")
+            f"`{SUGGESTION_MODEL}`).** Nothing is applied until you press Apply and "
+            "then Save." + (f"\n\n**Why:** {esc(suggestion.notes)}" if suggestion.notes else "")
         )
         for field, text in suggestion.suggestions.items():
-            st.markdown(f"- **{field}:** {text}")
+            st.markdown(f"- **{field}:** {esc(text)}")
         if st.button("Apply suggestion to the form below", key="ai_apply"):
             st.session_state["ai_applied"] = dict(suggestion.suggestions)
             st.session_state.pop("ai_suggestion", None)

@@ -40,6 +40,11 @@ def render_labfit_page(conn) -> None:
 
     samples = list_samples(conn)
     capabilities = list_capabilities(conn)
+
+    st.divider()
+    _render_number_streams(conn)
+    st.divider()
+
     if not samples:
         st.info("No samples recorded yet — record one under **Samples & identity**.")
         return
@@ -83,14 +88,12 @@ def render_labfit_page(conn) -> None:
                 f"{_ASSESSMENT_LABELS[latest.assessment]}")
     for r in latest.reasons:
         st.markdown(
-            f"- [{r.get('kind', 'summary')}] {r.get('requirement', '')}"
+            f"- [{r.get('kind', 'summary')}] {(esc(r.get('requirement', '')))}"
             f"{r.get('match', '') + ' — ' if r.get('match') else ''}"
-            f"effect: **{r['effect']}**\n  - {r['reason']}"
-            + (f" — location: {r['evidence_location']}" if r.get("evidence_location") else "")
+            f"effect: **{r['effect']}**\n  - {esc(r['reason'])}"
+            + (f" — location: {(esc(r['evidence_location']) if r.get('evidence_location') else '`unknown`')}" if r.get("evidence_location") else "")
         )
 
-    st.divider()
-    _render_number_streams(conn)
 
 
 def _render_number_streams(conn) -> None:

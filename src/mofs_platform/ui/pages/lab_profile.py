@@ -21,6 +21,7 @@ from mofs_platform.domain.labprofile import (
     list_capabilities,
     update_capability,
 )
+from mofs_platform.ui._widgets import esc
 
 LAB_PAGE_TITLE = "Laboratory profile"
 
@@ -76,9 +77,9 @@ def render_lab_profile_page(conn) -> None:
     else:
         st.subheader(f"Recorded capabilities ({len(entries)})")
         for cap in entries:
-            line = f"- **{cap.name}** — {_STATUS_MARKERS[cap.status]}"
+            line = f"- **{esc(cap.name)}** — {_STATUS_MARKERS[cap.status]}"
             if cap.description:
-                line += f" — {cap.description}"
+                line += f" — {esc(cap.description)}"
             st.markdown(line)
         st.caption(
             "current ≠ future ≠ explicitly unavailable ≠ `unknown`: each entry shows "
@@ -89,7 +90,7 @@ def render_lab_profile_page(conn) -> None:
 
     editing = st.session_state.get("editing")
     if editing:
-        st.warning(f"Correcting entry #{editing['id']}: {editing['name']}")
+        st.warning(f"Correcting entry #{editing['id']}: {esc(editing['name'])}")
 
     with st.form("capability_form", clear_on_submit=True):
         st.text_input("Capability name", key="cap_name")
@@ -114,10 +115,10 @@ def render_lab_profile_page(conn) -> None:
         try:
             if editing:
                 updated = update_capability(conn, editing["id"], name, desc, status)
-                st.session_state["flash"] = f"Correction saved for {updated.name}."
+                st.session_state["flash"] = f"Correction saved for {esc(updated.name)}."
             else:
                 added = add_capability(conn, name, desc, status)
-                st.session_state["flash"] = f"Capability added: {added.name}."
+                st.session_state["flash"] = f"Capability added: {esc(added.name)}."
             st.session_state["exit_edit_request"] = True
             st.rerun()  # success path only — errors stay visible on this render
         except LabProfileValidationError as exc:
