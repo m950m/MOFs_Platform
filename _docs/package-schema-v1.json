@@ -1,0 +1,136 @@
+{
+  "$id": "mofs-evidence-package/v1",
+  "title": "MOFs Platform evidence package — format v1 (issue #19, AC1)",
+  "description": "A standardized, attributable offline evidence package. Mirrors the platform's domain models: sources, samples, observations, assertions, and optional compounds. Every row carries provenance. Import is strict: unknown keys, wrong versions, missing provenance, review-state overwrites, and merge attempts are ALL rejected with a full reason list. Contributors submit; the owner's human review decides what is trusted.",
+  "type": "object",
+  "required": ["package_format", "schema_version", "contributor", "exported_at"],
+  "additionalProperties": false,
+  "properties": {
+    "package_format": { "const": "mofs-evidence-package" },
+    "schema_version": { "const": 1 },
+    "exported_at": { "type": "string", "description": "ISO-8601 timestamp of the export." },
+    "contributor": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "description": "Attribution identity — packages without a name are rejected (no anonymized imports)." }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package_id", "inspected_level"],
+        "additionalProperties": false,
+        "properties": {
+          "package_id": { "type": "integer", "description": "Within-package reference id." },
+          "doi": { "type": ["string", "null"] },
+          "url": { "type": ["string", "null"] },
+          "title": { "type": ["string", "null"] },
+          "supplied_input": { "type": ["string", "null"], "description": "What the contributor actually read." },
+          "inspected_level": { "enum": ["unknown", "metadata", "abstract", "full_text", "user_passage"] },
+          "rights_note": { "type": ["string", "null"] },
+          "container": { "type": ["string", "null"] },
+          "issued_year": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package_id", "source_package_id", "designation", "basis"],
+        "additionalProperties": false,
+        "properties": {
+          "package_id": { "type": "integer" },
+          "source_package_id": { "type": "integer", "description": "Must reference a source IN THIS PACKAGE — local-id references are rejected." },
+          "designation": { "type": "string", "minLength": 1 },
+          "basis": { "enum": ["experimental", "computational", "hypothetical"] },
+          "parent_framework_name": { "type": ["string", "null"] },
+          "linker": { "type": ["string", "null"] },
+          "metal_node": { "type": ["string", "null"] },
+          "composition": { "type": ["string", "null"] },
+          "additions": { "type": ["string", "null"] },
+          "structure_ref": { "type": ["string", "null"] },
+          "activation": { "type": ["string", "null"] },
+          "lineage_kind": { "enum": [null, "composite", "derived"] },
+          "lineage_parent_package_id": { "type": ["integer", "null"], "description": "Must also be in this package." }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package_id", "sample_package_id", "source_package_id", "observation_kind"],
+        "additionalProperties": false,
+        "properties": {
+          "package_id": { "type": "integer" },
+          "sample_package_id": { "type": "integer" },
+          "source_package_id": { "type": "integer" },
+          "observation_kind": { "enum": ["experimental", "computational", "hypothetical"] },
+          "value": { "type": ["string", "null"] },
+          "unit": { "type": ["string", "null"] },
+          "reaction": { "enum": [null, "HER", "OER", "other"] },
+          "medium": { "type": ["string", "null"] },
+          "reference_convention": { "type": ["string", "null"] },
+          "loading": { "type": ["string", "null"] },
+          "duration": { "type": ["string", "null"] },
+          "protocol": { "type": ["string", "null"] },
+          "evidence_location": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package_id", "source_package_id", "claim_type", "claim_text", "epistemic_type"],
+        "additionalProperties": false,
+        "properties": {
+          "package_id": { "type": "integer" },
+          "source_package_id": { "type": "integer" },
+          "claim_type": { "enum": ["preparation", "composition", "property", "application", "other"] },
+          "claim_text": { "type": "string", "minLength": 1 },
+          "evidence_location": { "type": ["string", "null"] },
+          "epistemic_type": { "enum": ["directly_reported", "author_interpretation", "tool_inference", "user_judgment", "unknown"] },
+          "conflicts_with_package_id": { "type": ["integer", "null"], "description": "Within-package conflict pairing." }
+        }
+      }
+    },
+    "compounds": {
+      "type": "array",
+      "description": "Optional. v1 compounds group ONLY within-package members — a package can never attach to local records (identity invariants).",
+      "items": {
+        "type": "object",
+        "required": ["package_id", "canonical_name", "identity_note", "member_package_ids"],
+        "additionalProperties": false,
+        "properties": {
+          "package_id": { "type": "integer" },
+          "canonical_name": { "type": "string", "minLength": 1 },
+          "framework_key": { "type": ["string", "null"] },
+          "identity_note": { "type": "string", "minLength": 1 },
+          "member_package_ids": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["member_type", "member_package_id"],
+              "additionalProperties": false,
+              "properties": {
+                "member_type": { "enum": ["sample_record", "structure_index"] },
+                "member_package_id": { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "import_semantics": {
+    "review_state": "Every imported row enters as needs_verification. A package whose rows carry any other review state is rejected entirely (overwrite attempt).",
+    "attribution": "Every imported row is attributed to the package contributor; the import never auto-promotes review states.",
+    "coexistence": "Imported records are NEW separate rows. Nothing merges, nothing attaches to local records.",
+    "rejection": "ALL reasons are collected and reported — the package is accepted only when the reason list is empty. Re-importing a DOI that already exists locally is allowed (the platform's re-capture semantics), but a package sample whose designation exactly matches an existing local sample under that same DOI is a merge attempt and is rejected."
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "package_format": "mofs-evidence-package",
+  "schema_version": 1,
+  "exported_at": "2026-10-04T12:00:00",
+  "contributor": {
+    "name": "A. Contributor"
+  },
+  "sources": [
+    {
+      "package_id": 1,
+      "doi": "10.1021/acssuschemeng.5c12327",
+      "url": null,
+      "title": "Heteromultimetallic Conductive MOF as Bifunctional Electrocatalyst for Water Splitting",
+      "supplied_input": "Abstract inspected on the publisher page (no full text).",
+      "inspected_level": "abstract",
+      "rights_note": null,
+      "container": "ACS Sustainable Chemistry & Engineering",
+      "issued_year": "2026"
+    }
+  ],
+  "samples": [
+    {
+      "package_id": 1,
+      "source_package_id": 1,
+      "designation": "CoCoZn(HITP)2 (computational model)",
+      "basis": "computational",
+      "parent_framework_name": "M3(HITP)2 conductive MOF family",
+      "linker": "HITP (2,3,6,7,10,11-hexaiminotriphenylene)",
+      "metal_node": "Co, Zn",
+      "composition": "CoCoZn(HITP)2",
+      "additions": null,
+      "structure_ref": null,
+      "activation": null,
+      "lineage_kind": null,
+      "lineage_parent_package_id": null
+    }
+  ],
+  "observations": [
+    {
+      "package_id": 1,
+      "sample_package_id": 1,
+      "source_package_id": 1,
+      "observation_kind": "computational",
+      "value": "0.39",
+      "unit": "V",
+      "reaction": "other",
+      "medium": "not stated (computational study)",
+      "reference_convention": null,
+      "loading": null,
+      "duration": null,
+      "protocol": "computed total overpotential = sum of HER and OER contributions (DFT)",
+      "evidence_location": "Abstract (publisher page)"
+    }
+  ],
+  "assertions": [
+    {
+      "package_id": 1,
+      "source_package_id": 1,
+      "claim_type": "property",
+      "claim_text": "CoCoZn(HITP)2 identified as the most efficient bifunctional electrocatalyst, computed total overpotential 0.39 V",
+      "evidence_location": "Abstract (publisher page)",
+      "epistemic_type": "directly_reported",
+      "conflicts_with_package_id": null
+    }
+  ],
+  "compounds": [
+    {
+      "package_id": 1,
+      "canonical_name": "CoCoZn(HITP)2",
+      "framework_key": null,
+      "identity_note": "the paper's reported best candidate",
+      "member_package_ids": [
+        {
+          "member_type": "sample_record",
+          "member_package_id": 1
+        }
+      ]
+    }
+  ]
+}
