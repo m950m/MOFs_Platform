@@ -64,7 +64,7 @@ def render_samples_page(conn) -> None:
                 ) or "context `unknown`"
                 st.markdown(
                     f"  - 🔬 observation ({ob.observation_kind}): {esc(ob.value) if ob.value else '`unknown`'} "
-                    f"{ob.unit or ''} — {fields} — loc: {(esc(ob.evidence_location) if ob.evidence_location else '`unknown`')}"
+                    f"{(esc(ob.unit) if ob.unit else '')} — {fields} — loc: {(esc(ob.evidence_location) if ob.evidence_location else '`unknown`')}"
                 )
             for stt in list_states(conn, s.id):
                 st.markdown(
@@ -202,7 +202,7 @@ def render_samples_page(conn) -> None:
                         f"- **{r['relation']}** at `{r['level']}` level — "
                         f"merge permission: `{r['merge_permission']}` — "
                         f"review: `{r['review_state']}` — "
-                        f"evidence location: {r['evidence_location'] or '`unknown`'}"
+                        f"evidence location: {(esc(r['evidence_location']) if r['evidence_location'] else '`unknown`')}"
                         f"\n\n  {esc(r['reason'])}"
                     )
             except IdentityValidationError as exc:
@@ -215,5 +215,5 @@ def render_samples_page(conn) -> None:
             st.markdown(
                 f"- #{r['left']} ↔ #{r['right']}: **{r['relation']}** (`{r['level']}`) — "
                 f"merge: `{r['merge_permission']}` — review: `{r['review_state']}` — "
-                f"evidence location: {r['evidence_location'] or '`unknown`'}"
+                f"evidence location: {(esc(r['evidence_location']) if r['evidence_location'] else '`unknown`')}"
             )

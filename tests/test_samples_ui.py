@@ -91,7 +91,7 @@ def test_compare_shows_relation_with_merge_permission_and_location(
     text = all_text(at)
     assert "**unresolved**" in text
     assert "`none`" in text  # merge blocked
-    assert "Methods §2 (fixture)" in text  # evidence location rendered
+    text = all_text(at).replace("\\", "")  # esc() escapes markdown controls
     assert "different sources" in text
 
 

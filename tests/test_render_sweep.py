@@ -42,14 +42,27 @@ def seeded_app(run_app, db_path):
     conn.execute(
         "INSERT INTO observation (sample_id, source_id, observation_kind, value, unit, "
         "reaction, medium, evidence_location) VALUES (?, ?, 'experimental', '180', "
-        "'mV', 'HER', ?, ?)",
-        (sample_id, source_id, PAYLOAD, PAYLOAD),
+        "'mV ' || ?, 'HER', ?, ?)",
+        (sample_id, source_id, PAYLOAD, PAYLOAD, PAYLOAD),
+    )
+    for kind in ("property", "preparation", "application"):
+        conn.execute(
+            "INSERT INTO assertion (source_id, claim_type, claim_text, "
+            "evidence_location, extraction_author, epistemic_type, review_state) "
+            "VALUES (?, ?, ?, ?, 'Mohammed (owner)', 'directly_reported', "
+            "'needs_verification')",
+            (source_id, kind, f"Claim {PAYLOAD}", PAYLOAD),
+        )
+    sample_b = conn.execute(
+        "INSERT INTO sample_record (source_id, designation, composition, basis) "
+        "VALUES (?, ?, ?, 'experimental')",
+        (source_id, f"Sample B {PAYLOAD}", PAYLOAD),
     )
     conn.execute(
-        "INSERT INTO assertion (source_id, claim_type, claim_text, evidence_location, "
-        "extraction_author, epistemic_type, review_state) VALUES (?, 'property', ?, ?, "
-        "'Mohammed (owner)', 'directly_reported', 'needs_verification')",
-        (source_id, f"Claim {PAYLOAD}", PAYLOAD),
+        "INSERT INTO identity_relation (left_sample_id, right_sample_id, level, "
+        "relation, reason, review_state, merge_permission) VALUES (?, ?, 'sample', "
+        "'unresolved', ?, 'needs_verification', 'none')",
+        (sample_id, int(sample_b.lastrowid), PAYLOAD),
     )
     conn.execute(
         "INSERT INTO operating_state (sample_id, stage, phase_assignment, "
@@ -98,6 +111,42 @@ def test_no_live_markdown_survives_anywhere(seeded_app):
             if buttons:
                 buttons[0].click()
                 at.run()
+        if page == "Lab fit":
+            # run an assessment so the fit reasons render (needs preparation/
+            # application assertions against the lab profile)
+            selects = [s for s in at.selectbox if getattr(s, "key", "") == "fit_sample"]
+            if selects and selects[0].options:
+                selects[0].set_value(selects[0].options[0])
+                assess = [b for b in at.button if getattr(b, "key", "") == "assess_fit"]
+                if assess:
+                    assess[0].click()
+                    at.run()
+        if page == "Samples & identity":
+            # render the compare/relations block
+            selects = [s for s in at.selectbox if getattr(s, "key", "") == "cmp_a"]
+            if selects and selects[0].options:
+                selects[0].set_value(selects[0].options[0])
+                cmp_b = [s for s in at.selectbox if getattr(s, "key", "") == "cmp_b"]
+                if cmp_b and len(cmp_b[0].options) > 1:
+                    cmp_b[0].set_value(cmp_b[0].options[1])
+                compare = [b for b in at.button if getattr(b, "key", "") == "run_compare"]
+                if compare:
+                    compare[0].click()
+                    at.run()
+        if page == "Laboratory profile":
+            # exercise the correction path (warning + save flash)
+            correct = [b for b in at.button
+                       if getattr(b, "key", "").startswith("correct_")]
+            if correct:
+                correct[0].click()
+                at.run()
+                save = [b for b in at.button if getattr(b, "key", "") == "save_capability"]
+                if save:
+                    name = [t for t in at.text_input if getattr(t, "key", "") == "cap_name"]
+                    if name:
+                        name[0].set_value(f"Capability {PAYLOAD} corrected")
+                    save[0].click()
+                    at.run()
         assert not at.exception, f"{page} raised: {at.exception[0].value[:200]}"
         raw = "\n".join(
             [m.value for m in at.markdown]
