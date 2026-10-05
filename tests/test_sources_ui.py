@@ -171,7 +171,7 @@ def test_structure_import_search_and_capture(app_with_question, db_path, tmp_pat
     by_key(at.text_input, "struct_query").set_value("Zn-MOF")
     by_key(at.button, "struct_search").click()
     at.run()
-    text = all_text(at)
+    text = all_text(at).replace("\\", "")  # esc() escapes markdown controls
     assert "Zn-MOF-test" in text and "10.9999/zn-mof" in text
     assert "leads, not verified samples" in text
 

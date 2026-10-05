@@ -28,25 +28,26 @@ from mofs_platform.domain.refinement import (
     mechanical_observations,
 )
 from mofs_platform.sources import glm
+from mofs_platform.ui._widgets import esc
 
 PAGE_TITLE = "Research question"
 
 
 def _show_saved(question: Question, corrections: int) -> None:
     st.success(f"Saved question (last updated: {question.updated_at}).")
-    st.markdown(f"**Question wording:**\n\n> {question.wording}")
+    st.markdown(f"**Question wording:**\n\n> {esc(question.wording)}")
     left, right = st.columns(2)
     with left:
         st.subheader("Hard requirements", help="Must be met by a candidate.")
-        st.markdown(question.hard_requirements or "`unknown`")
+        st.markdown(esc(question.hard_requirements) if question.hard_requirements else "`unknown`")
     with right:
         st.subheader("Preferences", help="Nice to have; not required.")
-        st.markdown(question.preferences or "`unknown`")
+        st.markdown(esc(question.preferences) if question.preferences else "`unknown`")
     st.markdown(
-        f"- Reaction / application: {question.reactions or '`unknown`'}\n"
-        f"- Allowed material classes: {question.material_classes or '`unknown`'}\n"
-        f"- Relevant conditions: {question.conditions or '`unknown`'}\n"
-        f"- Meaning of improvement: {question.meaning_of_improvement or '`unknown`'}"
+        f"- Reaction / application: {esc(question.reactions) if question.reactions else '`unknown`'}\n"
+        f"- Allowed material classes: {esc(question.material_classes) if question.material_classes else '`unknown`'}\n"
+        f"- Relevant conditions: {esc(question.conditions) if question.conditions else '`unknown`'}\n"
+        f"- Meaning of improvement: {esc(question.meaning_of_improvement) if question.meaning_of_improvement else '`unknown`'}"
     )
     st.caption(
         f"{corrections} save event(s) recorded (first save + corrections). "
@@ -228,10 +229,10 @@ def _render_ai_section(conn, current: Question | None, applied: dict) -> None:
         st.info(
             "**`tool inference` — suggestion from the assistant ("
             f"`{glm.MODEL}`).** Nothing is applied until you press Apply and "
-            "then Save." + (f"\n\n**Why:** {suggestion.notes}" if suggestion.notes else "")
+            "then Save." + (f"\n\n**Why:** {esc(suggestion.notes)}" if suggestion.notes else "")
         )
         for field, text in suggestion.suggestions.items():
-            st.markdown(f"- **{field}:** {text}")
+            st.markdown(f"- **{field}:** {esc(text)}")
         if st.button("Apply suggestion to the form below", key="ai_apply"):
             st.session_state["ai_applied"] = dict(suggestion.suggestions)
             st.session_state.pop("ai_suggestion", None)

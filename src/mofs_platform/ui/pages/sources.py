@@ -83,15 +83,15 @@ def render_sources_page(conn) -> None:
         st.subheader(f"Saved references ({len(references)}) — {count_captures(conn)} capture event(s)")
         for ref in references:
             label = ref.title or ref.doi or ref.url or f"Reference #{ref.id}"
-            st.markdown(f"**{label}**")
+            st.markdown(f"**{esc(label)}**")
             lines = [
                 f"- Origin: `{ref.entry_method}`"
                 + (f" — contributor: {ref.contributor}" if ref.contributor else ""),
-                f"- DOI: {ref.doi or '`unknown`'} — captured: {ref.retrieval_date}",
+                f"- DOI: {esc(ref.doi) if ref.doi else '`unknown`'} — captured: {ref.retrieval_date}",
                 f"- Inspected: {level_label(ref.inspected_level)}",
             ]
             if ref.container:
-                lines.append(f"- Container: {ref.container}" + (f" ({ref.issued_year})" if ref.issued_year else ""))
+                lines.append(f"- Container: {esc(ref.container) if ref.container else '`unknown`'}" + (f" ({ref.issued_year})" if ref.issued_year else ""))
             if ref.license_url:
                 lines.append(f"- License: {ref.license_url}")
             if ref.rights_note:
@@ -193,8 +193,8 @@ def render_sources_page(conn) -> None:
             icon = "✅" if at_row.outcome == "success" else "⚠️"
             st.markdown(
                 f"- {icon} `{at_row.outcome}` — {at_row.target} — {at_row.created_at}"
-                + (f"\n  Next step: {at_row.next_step}" if at_row.next_step else "")
-                + (f"\n  Detail: {at_row.note}" if at_row.note else "")
+                + (f"\n  Next step: {esc(at_row.next_step)}" if at_row.next_step else "")
+                + (f"\n  Detail: {esc(at_row.note)}" if at_row.note else "")
             )
     st.caption(
         "Manual capture is an offline route: network failure kinds cannot apply "
@@ -452,11 +452,11 @@ def _render_structure_section(conn) -> None:
         st.markdown(f"**{len(results)} structure record(s)** — leads, not verified samples")
         for r in results:
             st.markdown(
-                f"- **{r['name']}**"
-                + (f" ({r['formula']})" if r["formula"] else "")
+                f"- **{esc(r['name'])}**"
+                + (f" ({esc(r['formula'])})" if r["formula"] else "")
                 + f" — `{r['provider']}`"
-                + (f" — id: {r['external_id']}" if r["external_id"] else "")
-                + (f" — DOI: {r['doi']}" if r["doi"] else " — DOI: `unknown`")
+                + (f" — id: {esc(r['external_id'])}" if r["external_id"] else "")
+                + (f" — DOI: {esc(r['doi'])}" if r["doi"] else " — DOI: `unknown`")
             )
             if r.get("extra"):
                 # Computed/context properties ride along from the provider CSV

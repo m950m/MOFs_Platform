@@ -21,6 +21,7 @@ from mofs_platform.domain.labprofile import (
     list_capabilities,
     update_capability,
 )
+from mofs_platform.ui._widgets import esc
 
 LAB_PAGE_TITLE = "Laboratory profile"
 
@@ -76,9 +77,9 @@ def render_lab_profile_page(conn) -> None:
     else:
         st.subheader(f"Recorded capabilities ({len(entries)})")
         for cap in entries:
-            line = f"- **{cap.name}** — {_STATUS_MARKERS[cap.status]}"
+            line = f"- **{esc(cap.name)}** — {_STATUS_MARKERS[cap.status]}"
             if cap.description:
-                line += f" — {cap.description}"
+                line += f" — {esc(cap.description)}"
             st.markdown(line)
         st.caption(
             "current ≠ future ≠ explicitly unavailable ≠ `unknown`: each entry shows "

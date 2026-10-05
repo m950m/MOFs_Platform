@@ -21,6 +21,7 @@ from mofs_platform.domain.identity import (
     record_sample,
 )
 from mofs_platform.domain.references import list_references
+from mofs_platform.ui._widgets import esc
 
 SAMPLES_PAGE_TITLE = "Samples & identity"
 
@@ -47,23 +48,23 @@ def render_samples_page(conn) -> None:
             if s.derived_from_sample_id:
                 lineage = f" — {s.lineage_kind} of sample #{s.derived_from_sample_id}"
             st.markdown(
-                f"- **#{s.id} {s.designation}** (`{s.basis}`){lineage}\n"
-                f"  - parent framework: {s.parent_framework_name or '`unknown`'} — "
-                f"linker: {s.linker or '`unknown`'} — metal: {s.metal_node or '`unknown`'}\n"
-                f"  - additions: {s.additions or '`unknown`'} — activation: "
-                f"{s.activation or '`unknown`'} — structure ref: {s.structure_ref or '`unknown`'}"
+                f"- **#{s.id} {esc(s.designation)}** (`{s.basis}`){lineage}\n"
+                f"  - parent framework: {esc(s.parent_framework_name) if s.parent_framework_name else '`unknown`'} — "
+                f"linker: {esc(s.linker) if s.linker else '`unknown`'} — metal: {esc(s.metal_node) if s.metal_node else '`unknown`'}\n"
+                f"  - additions: {esc(s.additions) if s.additions else '`unknown`'} — activation: "
+                f"{esc(s.activation) if s.activation else '`unknown`'} — structure ref: {esc(s.structure_ref) if s.structure_ref else '`unknown`'}"
             )
             for ob in list_observations(conn, s.id):
                 fields = ", ".join(
-                    f"{k}={v}" for k, v in {
+                    f"{k}={esc(v) if v else ''}" for k, v in {
                         "reaction": ob.reaction, "medium": ob.medium,
                         "ref": ob.reference_convention, "loading": ob.loading,
                         "duration": ob.duration, "protocol": ob.protocol,
                     }.items() if v
                 ) or "context `unknown`"
                 st.markdown(
-                    f"  - 🔬 observation ({ob.observation_kind}): {ob.value or '`unknown`'} "
-                    f"{ob.unit or ''} — {fields} — loc: {ob.evidence_location or '`unknown`'}"
+                    f"  - 🔬 observation ({ob.observation_kind}): {esc(ob.value) if ob.value else '`unknown`'} "
+                    f"{ob.unit or ''} — {fields} — loc: {(esc(ob.evidence_location) if ob.evidence_location else '`unknown`')}"
                 )
             for stt in list_states(conn, s.id):
                 st.markdown(
