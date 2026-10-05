@@ -16,6 +16,7 @@ from mofs_platform.domain.packages import (
     FORMAT as PACKAGE_FORMAT,
 )
 from mofs_platform.domain.packages import (
+    PackagePersistenceError,
     PackageValidationError,
     export_package,
     import_package,
@@ -564,5 +565,9 @@ def _render_packages_section(conn) -> None:
                 st.error("PACKAGE REJECTED — every reason:")
                 for reason in exc.reasons:
                     st.markdown(f"- {esc(reason)}")
+            except PackagePersistenceError as exc:
+                st.error(str(exc))
             except json.JSONDecodeError as exc:
                 st.error(f"The file is not valid JSON. ({exc})")
+            except UnicodeDecodeError as exc:
+                st.error(f"The file is not valid UTF-8 text. ({exc})")

@@ -3,9 +3,8 @@
 Export produces a schema-v1 package from selected sources and their
 dependents. Import validates STRICTLY and collects EVERY reason before
 deciding: schema drift, version mismatch, missing provenance, review-state
-overwrite attempts, and merge attempts (a package sample whose designation
-exactly matches an existing local sample under the same package DOI) are
-all rejected. Accepted imports create NEW separate rows attributed to the
+overwrite attempts, and merge attempts (any row carrying local-linking
+keys such as existing_local_id or merge_into) are all rejected. Accepted imports create NEW separate rows attributed to the
 package contributor, every row entering as `needs_verification` — the
 import never auto-promotes review states, never merges, and never attaches
 to local records (identity invariants, D5).
@@ -134,7 +133,10 @@ def export_package(conn: sqlite3.Connection, source_ids: list[int]) -> dict:
             "linker": row["linker"], "metal_node": row["metal_node"],
             "composition": row["composition"], "additions": row["additions"],
             "structure_ref": row["structure_ref"], "activation": row["activation"],
-            "lineage_kind": row["lineage_kind"],
+            # a lineage parent OUTSIDE the selection is a local fact — the
+            # pair is neutralized together so the package stays importable
+            "lineage_kind": row["lineage_kind"]
+            if row["derived_from_sample_id"] in ids else None,
             "lineage_parent_package_id": row["derived_from_sample_id"]
             if row["derived_from_sample_id"] in ids else None,
         })
@@ -163,6 +165,28 @@ def export_package(conn: sqlite3.Connection, source_ids: list[int]) -> dict:
             "conflicts_with_package_id": row["conflicts_with"]
             if row["conflicts_with"] in ids else None,
         })
+    # compounds: exported ONLY when every sample member is inside the
+    # selection (v1 members are samples; structure members never export —
+    # they cannot be re-created outside this machine)
+    for row in conn.execute("SELECT * FROM compound ORDER BY id"):
+        members = conn.execute(
+            "SELECT * FROM compound_member WHERE compound_id = ? ORDER BY id",
+            (row["id"],),
+        ).fetchall()
+        if not members or any(
+            m["member_type"] != "sample_record" or m["member_id"] not in ids
+            for m in members
+        ):
+            continue
+        package["compounds"].append({
+            "package_id": row["id"], "canonical_name": row["canonical_name"],
+            "framework_key": row["framework_key"],
+            "identity_note": row["identity_note"],
+            "member_package_ids": [
+                {"member_type": m["member_type"], "member_package_id": m["member_id"]}
+                for m in members
+            ],
+        })
     return package
 
 
@@ -185,10 +209,16 @@ def import_package(
     when anything fails."""
     reasons: list[str] = []
     try:
-        if isinstance(raw, (str, bytes)):
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        if isinstance(raw, str):
             package = json.loads(raw)
         else:
             package = raw
+    except UnicodeDecodeError as exc:
+        raise PackageValidationError(
+            [f"the payload is not valid UTF-8 text. ({exc})"]
+        ) from exc
     except json.JSONDecodeError as exc:
         raise PackageValidationError(
             [f"the payload is not valid JSON. ({exc})"]
@@ -530,8 +560,10 @@ def import_package(
                 )
                 compound_id = int(cur.lastrowid)
                 for member in row.get("member_package_ids") or []:
+                    member_type = member.get("member_type")
+                    local_key = "sample" if member_type == "sample_record" else member_type
                     local_id = id_map.get(
-                        (member.get("member_type"), member.get("member_package_id"))
+                        (local_key, member.get("member_package_id"))
                     )
                     conn.execute(
                         "INSERT INTO compound_member (compound_id, member_type, "

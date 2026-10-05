@@ -183,3 +183,43 @@ def test_export_requires_selection(conn_with_data):
     conn, _ref = conn_with_data
     with pytest.raises(PackageValidationError):
         export_package(conn, [])
+
+
+def test_compound_round_trip_with_within_package_member(conn_with_data):
+    """Gate HIGH finding: compounds must export AND import (member key
+    mismatch made every compound import crash)."""
+    conn, ref_id = conn_with_data
+    package = export_package(conn, [ref_id])
+    # a local compound attached to the selected sample
+    compound = conn.execute(
+        "INSERT INTO compound (canonical_name, framework_key, identity_note, "
+        "created_by) VALUES ('CoCoZn(HITP)2', 'mofkey-x', 'reported candidate', "
+        "'Mohammed (owner)')"
+    )
+    compound_id = compound.lastrowid
+    sample_row = conn.execute(
+        "SELECT id FROM sample_record WHERE source_id = ?", (ref_id,)
+    ).fetchone()
+    conn.execute(
+        "INSERT INTO compound_member (compound_id, member_type, member_id, "
+        "added_by, reason) VALUES (?, 'sample_record', ?, 'Mohammed (owner)', "
+        "'reported')",
+        (compound_id, sample_row["id"]),
+    )
+    conn.commit()
+    package = export_package(conn, [ref_id])
+    assert len(package["compounds"]) == 1  # exported now, was silently empty
+
+    package["contributor"]["name"] = "A. Contributor"
+    report = import_package(conn, package)
+    assert report.compounds == 1
+    imported = conn.execute(
+        "SELECT c.canonical_name, cm.member_id FROM compound c "
+        "JOIN compound_member cm ON cm.compound_id = c.id "
+        "WHERE c.canonical_name = 'CoCoZn(HITP)2' AND c.created_by = 'A. Contributor'"
+    ).fetchone()
+    assert imported is not None
+    # the imported member is the IMPORTED sample, never the local one
+    local_sample_id = sample_row["id"]
+    assert imported["member_id"] != local_sample_id
+    assert imported["member_id"] > local_sample_id

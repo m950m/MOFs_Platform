@@ -118,7 +118,7 @@
               "required": ["member_type", "member_package_id"],
               "additionalProperties": false,
               "properties": {
-                "member_type": { "enum": ["sample_record", "structure_index"] },
+                "member_type": { "enum": ["sample_record", "structure_index"], "description": "structure_index is RESERVED in v1 — import always rejects it (no package structure store)." },
                 "member_package_id": { "type": "integer" }
               }
             }
@@ -131,6 +131,6 @@
     "review_state": "Every imported row enters as needs_verification. A package whose rows carry any other review state is rejected entirely (overwrite attempt).",
     "attribution": "Every imported row is attributed to the package contributor; the import never auto-promotes review states.",
     "coexistence": "Imported records are NEW separate rows. Nothing merges, nothing attaches to local records.",
-    "rejection": "ALL reasons are collected and reported — the package is accepted only when the reason list is empty. Re-importing a DOI that already exists locally is allowed (the platform's re-capture semantics), but a package sample whose designation exactly matches an existing local sample under that same DOI is a merge attempt and is rejected."
+    "rejection": "ALL reasons are collected and reported — the package is accepted only when the reason list is empty. Re-importing a DOI that already exists locally is allowed (the platform's re-capture semantics): identical re-submissions COEXIST as new separate rows. A merge attempt is STRUCTURAL — any row carrying local-linking keys (e.g. existing_local_id, merge_into, local_id, overwrite, replace_local) is rejected, because the import never merges into or overwrites local records."
   }
 }
