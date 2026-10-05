@@ -46,6 +46,27 @@ def seeded_app(run_app, db_path):
         (sample_id, source_id, PAYLOAD, PAYLOAD),
     )
     conn.execute(
+        "INSERT INTO assertion (source_id, claim_type, claim_text, evidence_location, "
+        "extraction_author, epistemic_type, review_state) VALUES (?, 'property', ?, ?, "
+        "'Mohammed (owner)', 'directly_reported', 'needs_verification')",
+        (source_id, f"Claim {PAYLOAD}", PAYLOAD),
+    )
+    conn.execute(
+        "INSERT INTO operating_state (sample_id, stage, phase_assignment, "
+        "epistemic_type, evidence_location) VALUES (?, 'after', ?, 'user_judgment', ?)",
+        (sample_id, PAYLOAD, PAYLOAD),
+    )
+    conn.execute(
+        "INSERT INTO search_run (provider, query_text, scope, outcome, result_count, "
+        "next_step) VALUES ('crossref', 'sweep query', 'owner_edited', 'success', 1, 'n')"
+    )
+    conn.execute(
+        "INSERT INTO search_hit (run_id, provider, doi, title, issued_year, container, "
+        "her_token, oer_token) VALUES ((SELECT MAX(id) FROM search_run), 'crossref', "
+        "'10.9999/hit', ?, '2026', ?, 1, 1)",
+        (f"Hit {PAYLOAD}", PAYLOAD),
+    )
+    conn.execute(
         "INSERT INTO structure_index (provider, external_id, name, formula, doi, "
         "extra_json) VALUES ('qmof', 'SWEEP-1', ?, ?, '10.9999/qsweep', ?)",
         (f"Structure {PAYLOAD}", PAYLOAD, f'{{"Band Gap {PAYLOAD}": "1.4"}}'),
@@ -71,6 +92,12 @@ def test_no_live_markdown_survives_anywhere(seeded_app):
     for page in PAGES:
         at.sidebar.radio[0].set_value(page)
         at.run()
+        if page == "Candidates":
+            # open the candidate card — the deepest render path
+            buttons = [b for b in at.button if getattr(b, "key", "") == "inspect_candidate"]
+            if buttons:
+                buttons[0].click()
+                at.run()
         assert not at.exception, f"{page} raised: {at.exception[0].value[:200]}"
         raw = "\n".join(
             [m.value for m in at.markdown]

@@ -68,8 +68,8 @@ def render_samples_page(conn) -> None:
                 )
             for stt in list_states(conn, s.id):
                 st.markdown(
-                    f"  - ⚙️ operating state ({stt.stage}): phase '{stt.phase_assignment or '`unknown`'}' "
-                    f"— {stt.epistemic_type.replace('_', ' ')} — loc: {stt.evidence_location or '`unknown`'}"
+                    f"  - ⚙️ operating state ({stt.stage}): phase '{(esc(stt.phase_assignment) if stt.phase_assignment else '`unknown`')}' "
+                    f"— {stt.epistemic_type.replace('_', ' ')} — loc: {(esc(stt.evidence_location) if stt.evidence_location else '`unknown`')}"
                 )
         st.caption(
             "Observations belong to their sample only — they never appear on a "
@@ -126,7 +126,7 @@ def render_samples_page(conn) -> None:
                 derived_from_sample_id=parent_sel if isinstance(parent_sel, int) else None,
                 basis=st.session_state.get("smp_basis"),
             )
-            st.session_state["flash"] = f"Sample recorded: #{s.id} {s.designation}."
+            st.session_state["flash"] = f"Sample recorded: #{s.id} {esc(s.designation)}."
             st.rerun()
         except IdentityValidationError as exc:
             st.error(str(exc))
@@ -203,7 +203,7 @@ def render_samples_page(conn) -> None:
                         f"merge permission: `{r['merge_permission']}` — "
                         f"review: `{r['review_state']}` — "
                         f"evidence location: {r['evidence_location'] or '`unknown`'}"
-                        f"\n\n  {r['reason']}"
+                        f"\n\n  {esc(r['reason'])}"
                     )
             except IdentityValidationError as exc:
                 st.error(str(exc))

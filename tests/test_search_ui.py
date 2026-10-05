@@ -54,7 +54,7 @@ def test_successful_search_lists_hits_and_captures(app_with_question, db_path, m
     by_key(at.button, "run_search").click()
     at.run()
     assert any("1 hit(s)" in s.value for s in at.success)
-    text = all_text(at)
+    text = all_text(at).replace("\\", "")
     assert "Bifunctional MOF paper (synthetic)" in text
     assert "HER token in title: yes" in text
     assert "the two evidence streams stay separate" in text

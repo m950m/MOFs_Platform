@@ -45,7 +45,7 @@ def test_manual_capture_creates_attributed_lead(app_with_question, db_path):
     by_key(at.button, "save_reference").click()
     at.run()
     assert any("Reference captured (lead)" in s.value for s in at.success)
-    text = all_text(at)
+    text = all_text(at).replace("\\", "")
     assert "Origin: `manual`" in text
     assert "Mohammed (owner)" in text
     refs = list_references(connect(db_path))

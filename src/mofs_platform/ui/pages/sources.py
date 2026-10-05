@@ -86,16 +86,16 @@ def render_sources_page(conn) -> None:
             st.markdown(f"**{esc(label)}**")
             lines = [
                 f"- Origin: `{ref.entry_method}`"
-                + (f" — contributor: {ref.contributor}" if ref.contributor else ""),
+                + (f" — contributor: {esc(ref.contributor)}" if ref.contributor else ""),
                 f"- DOI: {esc(ref.doi) if ref.doi else '`unknown`'} — captured: {ref.retrieval_date}",
                 f"- Inspected: {level_label(ref.inspected_level)}",
             ]
             if ref.container:
                 lines.append(f"- Container: {esc(ref.container) if ref.container else '`unknown`'}" + (f" ({ref.issued_year})" if ref.issued_year else ""))
             if ref.license_url:
-                lines.append(f"- License: {ref.license_url}")
+                lines.append(f"- License: {esc(ref.license_url)}")
             if ref.rights_note:
-                lines.append(f"- Rights note: {ref.rights_note}")
+                lines.append(f"- Rights note: {esc(ref.rights_note)}")
             if ref.supplied_input:
                 lines.append(f"- Supplied input (exact): {esc(ref.supplied_input)}")
             if ref.indexed_at:
@@ -279,10 +279,10 @@ def render_sources_page(conn) -> None:
                     oer = "yes" if hit.oer_token else "no"
                     label = hit.title or hit.doi or f"Hit #{hit.id}"
                     lines = [
-                        f"**{label}**" + (f" ({hit.issued_year})" if hit.issued_year else ""),
+                        f"**{esc(label)}**" + (f" ({hit.issued_year})" if hit.issued_year else ""),
                         (
-                            f"- DOI: {hit.doi or '`unknown`'} — container: "
-                            f"{esc(hit.container) or '`unknown`'} — provider: `{hit.provider}`"
+                            f"- DOI: {(esc(hit.doi) if hit.doi else '`unknown`')} — container: "
+                            f"{(esc(hit.container) if hit.container else '`unknown`')} — provider: `{hit.provider}`"
                         ),
                         (
                             f"- HER token in title: {her} — OER token in title: {oer} — "

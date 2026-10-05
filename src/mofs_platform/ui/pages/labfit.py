@@ -90,7 +90,7 @@ def render_labfit_page(conn) -> None:
         st.markdown(
             f"- [{r.get('kind', 'summary')}] {r.get('requirement', '')}"
             f"{r.get('match', '') + ' — ' if r.get('match') else ''}"
-            f"effect: **{r['effect']}**\n  - {r['reason']}"
+            f"effect: **{r['effect']}**\n  - {esc(r['reason'])}"
             + (f" — location: {r['evidence_location']}" if r.get("evidence_location") else "")
         )
 

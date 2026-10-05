@@ -148,7 +148,7 @@ def test_ui_empty_state_and_card_inspection(run_app, db_path):
     matches = [b for b in at.button if getattr(b, "label", "") == "Inspect"]
     matches[0].click()
     at.run()
-    text = all_text(at)
+    text = all_text(at).replace("\\", "")
     assert "UI sample (synthetic)" in text
     assert "UI claim (synthetic)" in text
     assert "fig. 2" in text

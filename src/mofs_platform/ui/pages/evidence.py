@@ -59,9 +59,9 @@ def render_evidence_page(conn) -> None:
             )
             st.markdown(
                 f"**#{asm.id} [{asm.claim_type}]** — {esc(asm.claim_text)}\n\n"
-                f"- Source: {ref_label.get(asm.source_id, asm.source_id)}\n"
-                f"- Evidence location: {asm.evidence_location or '`unknown` — verification still required'}\n"
-                f"- Extracted by: {asm.extraction_author or '`unknown`'}\n"
+                f"- Source: {esc(str(ref_label.get(asm.source_id, asm.source_id)))}\n"
+                f"- Evidence location: {(esc(asm.evidence_location) if asm.evidence_location else '`unknown` — verification still required')}\n"
+                f"- Extracted by: {esc(asm.extraction_author) if asm.extraction_author else '`unknown`'}\n"
                 f"- Epistemic type: {EPISTEMIC_LABELS[asm.epistemic_type]}\n"
                 f"- Review state: {REVIEW_LABELS[asm.review_state]}"
                 + conflict_note
@@ -80,7 +80,7 @@ def render_evidence_page(conn) -> None:
     source_options = {ref.id: ref_label[ref.id] for ref in references}
     pair_options = {None: "— not marked as a conflict —"}
     pair_options.update(
-        {a.id: f"#{a.id} [{a.claim_type}] {a.claim_text[:60]}" for a in assertions}
+        {a.id: f"#{a.id} [{a.claim_type}] {esc(a.claim_text[:60])}" for a in assertions}
     )
     # The reference picker lives OUTSIDE the form on purpose: it must survive
     # saves so consecutive assertions do not silently re-target another source.

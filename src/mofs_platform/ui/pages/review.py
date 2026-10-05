@@ -98,7 +98,7 @@ def render_review_page(conn) -> None:
                 )
                 st.session_state["flash"] = (
                     f"Assertion #{result['id']} marked `reviewed` by "
-                    f"{result['reviewer']} (D4 recorded)."
+                    f"{esc(result['reviewer'])} (D4 recorded)."
                 )
                 st.rerun()
             except (ReviewValidationError, ReviewPersistenceError) as exc:
