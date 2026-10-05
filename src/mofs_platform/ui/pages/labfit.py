@@ -40,6 +40,11 @@ def render_labfit_page(conn) -> None:
 
     samples = list_samples(conn)
     capabilities = list_capabilities(conn)
+
+    st.divider()
+    _render_number_streams(conn)
+    st.divider()
+
     if not samples:
         st.info("No samples recorded yet — record one under **Samples & identity**.")
         return
@@ -89,8 +94,6 @@ def render_labfit_page(conn) -> None:
             + (f" — location: {r['evidence_location']}" if r.get("evidence_location") else "")
         )
 
-    st.divider()
-    _render_number_streams(conn)
 
 
 def _render_number_streams(conn) -> None:

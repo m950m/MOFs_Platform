@@ -5,13 +5,14 @@ discover materials with documented experimental preparation, keep each claim's
 source and location, preserve tested-sample identity, and let the researcher —
 not the tool — draw scientific conclusions.
 
-**Status:** the first complete evidence workflow is DONE — issues #3–#13 all
-closed with independent QA + scientific-review evidence (acceptance run:
-[`_docs/acceptance-run-001.md`](_docs/acceptance-run-001.md)). The backlog now
-holds the owner-approved vision layer (#14–#19: consistency hints, question
-refinement, active search, lab-vs-industry benchmarks, compound profiles,
-contributor packages). Owner decisions D1–D5 are recorded;
-D6–D8 remain open in [`_docs/decision-register.md`](_docs/decision-register.md).
+**Status:** the evidence engine (#3–#13) AND the owner's vision layer are
+implemented — #14 (consistency hints), #15 (AI question refinement, D10),
+#16 (active search, D9), #18 (compound profiles), #20 (sample corrections),
+#24 (structure index, D12 slice 1) are closed with independent
+spec-compliance + QA gate reports; #17 (lab-vs-industry number streams) and
+#19 (contributor packages) hold the remaining small slices. Owner decisions
+D1–D5 and D7–D12 are recorded; D6 and D8 remain open in
+[`_docs/decision-register.md`](_docs/decision-register.md).
 
 ## Read first
 
@@ -36,8 +37,12 @@ New dependencies require the owner's approval first (see `AGENTS.md`).
 
 ## Run locally
 
-Prerequisites: Python ≥ 3.11 (verified on 3.14.4). No credentials, no network
-needed at runtime. Data is stored in `data/platform.db` (override with the
+Prerequisites: Python ≥ 3.11 (verified on 3.14.4). Runs fully offline for
+recording, review, and structure imports. Outbound network happens ONLY on
+explicit researcher actions (Crossref/OpenAlex search + enrichment) — no API
+keys needed for those; the optional AI question-refinement assistant (D10)
+needs a Z.ai GLM API key supplied per session or via `MOFS_AI_API_KEY` (never
+stored). Data is stored in `data/platform.db` (override with the
 `MOFS_DB_PATH` environment variable); the schema is created by numbered
 migrations on first run.
 

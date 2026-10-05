@@ -9,7 +9,6 @@ The optional `transport` parameter injects httpx.MockTransport in tests so
 the suite never touches the live API.
 """
 
-from dataclasses import dataclass
 
 import httpx
 
@@ -24,18 +23,6 @@ SEARCH_URL = "https://api.openalex.org/works"
 DEFAULT_TIMEOUT = 10.0
 
 FAILURE_KINDS = ("no_hit", "rate_limited", "timeout", "offline", "bad_response", "bad_input")
-
-
-@dataclass(frozen=True)
-class OpenAlexMetadata:
-    """Enrichment-shape metadata (title/container/year/url) so a captured
-    hit can also be enriched later through the existing D2 route."""
-
-    doi: str | None
-    title: str | None
-    container: str | None
-    issued_year: str | None
-    url: str | None
 
 
 def _map_result(result: dict) -> SearchHit:

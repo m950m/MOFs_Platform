@@ -13,6 +13,7 @@ import re
 
 from mofs_platform.domain.hints import question_hints
 from mofs_platform.domain.questions import Question
+from mofs_platform.sources import glm
 
 # The documented vague-term list (issue #15 acceptance criterion). Each entry
 # is matched word-boundary, case-insensitive, inside the question wording.
@@ -93,3 +94,43 @@ def mechanical_observations(question: Question) -> list[dict]:
             "message": hint["message"],
         })
     return observations
+
+
+# Domain-exposed names for the UI (layer rule: ui never imports sources/).
+SUGGESTION_MODEL = glm.MODEL
+GLMRefinement = glm.GLMRefinement
+GLMFailure = glm.GLMFailure
+
+
+def request_ai_suggestion(
+    conn, question: Question, api_key: str | None,
+    transport=None,
+) -> "object":
+    """Domain-layer AI refinement call (issue #15, D10) — the UI never
+    touches sources/ directly (ARCHITECTURE.md fixed layers). Sends ONLY the
+    question's own fields; logs the attempt to the route audit; returns the
+    GLMRefinement or GLMFailure unchanged for the UI to render as `tool
+    inference`."""
+    import os
+
+    from mofs_platform.domain.attempts import PROVIDER_AI, record_attempt
+    from mofs_platform.sources import glm
+
+    fields = {
+        "wording": question.wording,
+        "reactions": question.reactions,
+        "material_classes": question.material_classes,
+        "conditions": question.conditions,
+        "hard_requirements": question.hard_requirements,
+        "preferences": question.preferences,
+        "meaning_of_improvement": question.meaning_of_improvement,
+    }
+    key = api_key or os.environ.get("MOFS_AI_API_KEY")
+    result = glm.suggest_refinement(fields, key, transport=transport)
+    outcome = "success" if not isinstance(result, glm.GLMFailure) else result.kind
+    record_attempt(
+        conn, provider=PROVIDER_AI, target="question_refinement",
+        attempt_kind="ai_refinement", outcome=outcome,
+        note=None if outcome == "success" else result.detail,
+    )
+    return result

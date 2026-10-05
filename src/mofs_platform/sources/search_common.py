@@ -5,6 +5,7 @@ shape and the same typed failure vocabulary as the enrichment route.
 Provider hit order is retrieval order — never a ranking claim.
 """
 
+import re
 from dataclasses import dataclass
 
 FAILURE_KINDS = ("no_hit", "rate_limited", "timeout", "offline", "bad_response", "bad_input")
@@ -39,10 +40,12 @@ class SearchFailure:
 
 
 def title_tokens(title: str | None) -> tuple[bool, bool]:
+    """Acronyms are word-boundary + case-sensitive (the hints convention —
+    'ADHERENT' must never light HER); phrases are case-insensitive."""
     text = title or ""
     lowered = text.lower()
-    her = HER_TOKEN in text or HER_PHRASE in lowered
-    oer = OER_TOKEN in text or OER_PHRASE in lowered
+    her = re.search(r"\bHERs?\b", text) is not None or HER_PHRASE in lowered
+    oer = re.search(r"\bOERs?\b", text) is not None or OER_PHRASE in lowered
     return her, oer
 
 
