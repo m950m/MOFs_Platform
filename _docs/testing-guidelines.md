@@ -44,3 +44,14 @@ at any time; these rules bind agent-authored tests.
    outcomes: stored rows, displayed states, exit codes.
 10. **Keep the suite green and offline.** A fresh checkout must reproduce
     setup, startup, and all tests with no credentials and no network.
+
+## Run order (owner mandate, 2026-10-04)
+
+Testing is tiered — matching effort to blast radius:
+
+1. **Unit tests for the changed module** run first (fast feedback where the
+   change landed).
+2. **Related integration tests** (the module's direct consumers) run second.
+3. **The full regression suite runs only before merge/release** — on the
+   release branch, right before opening the PR. Tiering changes WHEN the
+   full sweep runs, not whether it runs: no merge without it.
