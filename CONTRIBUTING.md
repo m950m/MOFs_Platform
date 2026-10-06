@@ -45,7 +45,7 @@ decision — attribution and review happen on the owner's machine.
 ```bash
 git clone https://github.com/m950m/MOFs_Platform && cd MOFs_Platform
 python -m venv .venv
-.venv/bin/pip install -e .
+.venv/bin/pip install -e ".[dev]"
 .venv/bin/pytest -q          # the full suite — 250+ tests, all offline
 .venv/bin/ruff check src tests scripts
 .venv/bin/python -m mofs_platform.smoke
