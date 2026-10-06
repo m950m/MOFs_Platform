@@ -54,6 +54,7 @@ nav:
   - Getting started: getting-started.md
   - Screens:
       - screens/index.md
+      - screens/home.md
       - screens/research-question.md
       - screens/laboratory-profile.md
       - screens/sources.md
