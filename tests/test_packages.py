@@ -48,6 +48,16 @@ def test_export_builds_schema_v1_package(conn_with_data):
     schema = json.loads(Path("_docs/package-schema-v1.json").read_text(encoding="utf-8"))
     top_allowed = set(schema["properties"])
     assert set(package) <= top_allowed
+    # row-level conformance: every exported row's keys ⊆ the schema's row keys
+    row_map = {
+        "sources": set(schema["properties"]["sources"]["items"]["properties"]),
+        "samples": set(schema["properties"]["samples"]["items"]["properties"]),
+        "observations": set(schema["properties"]["observations"]["items"]["properties"]),
+        "assertions": set(schema["properties"]["assertions"]["items"]["properties"]),
+    }
+    for section, allowed in row_map.items():
+        for row in package[section]:
+            assert set(row) <= allowed, f"{section} row drift: {set(row) - allowed}"
     assert json.dumps(package)  # JSON-serializable
 
 
@@ -223,3 +233,100 @@ def test_compound_round_trip_with_within_package_member(conn_with_data):
     local_sample_id = sample_row["id"]
     assert imported["member_id"] != local_sample_id
     assert imported["member_id"] > local_sample_id
+
+
+def test_export_id_spaces_do_not_coincide(conn_with_data):
+    """Gate HIGH: membership/lineage/conflict must be tested against the
+    EXPORTED sample/assertion id sets, never the selected source ids. This
+    layout forces sample/assertion ids to differ from source ids."""
+    conn, ref_id = conn_with_data
+    # a SECOND source (id 2) so source-id and sample-id spaces diverge
+    ref2 = add_manual_reference(conn, doi="10.9999/other-source", title="Other")
+    sample = conn.execute(
+        "SELECT id FROM sample_record WHERE source_id = ?", (ref_id,)
+    ).fetchone()
+    sample_id = sample["id"]  # created AFTER ref_id → ids may coincide; force drift:
+    # add a sample under the SECOND source so the next sample id skips away
+    drift = record_sample(conn, source_id=ref2.id, designation="Drift sample")
+    # compound: member is sample_id (under ref_id) — sample id ≠ ref2.id likely;
+    # the assertion below holds regardless of coincidence because we assert
+    # against behavior, not ids.
+    conn.execute(
+        "INSERT INTO compound (canonical_name, framework_key, identity_note, created_by) "
+        "VALUES ('CoCoZn(HITP)2', NULL, 'reported candidate', 'Mohammed (owner)')"
+    )
+    conn.execute(
+        "INSERT INTO compound_member (compound_id, member_type, member_id, added_by, "
+        "reason) VALUES ((SELECT MAX(id) FROM compound), 'sample_record', ?, "
+        "'Mohammed (owner)', 'reported')", (sample_id,))
+    # two conflicting assertions under ref_id
+    first = conn.execute(
+        "INSERT INTO assertion (source_id, claim_type, claim_text, epistemic_type, "
+        "review_state) VALUES (?, 'property', 'Claim A', 'directly_reported', "
+        "'conflicted')", (ref_id,)).lastrowid
+    second = conn.execute(
+        "INSERT INTO assertion (source_id, claim_type, claim_text, epistemic_type, "
+        "review_state, conflicts_with) VALUES (?, 'property', 'Claim B', "
+        "'directly_reported', 'conflicted', ?)", (ref_id, first)).lastrowid
+    # lineage: drift sample DERIVES from sample_id (parent in selection)
+    conn.execute(
+        "UPDATE sample_record SET lineage_kind = 'derived', "
+        "derived_from_sample_id = ? WHERE id = ?", (sample_id, drift.id))
+    conn.commit()
+
+    # export BOTH sources: both samples inside, ids non-coinciding with sources
+    package = export_package(conn, [ref_id, ref2.id])
+    exported_sample_ids = {s["package_id"] for s in package["samples"]}
+    assert sample_id in exported_sample_ids and drift.id in exported_sample_ids
+    # compound with an in-selection member exports WITH its member
+    assert len(package["compounds"]) == 1
+    assert package["compounds"][0]["member_package_ids"][0]["member_package_id"] == sample_id
+    # lineage whose parent IS in the package stays (drift derives from sample_id)
+    lineages = [(s["lineage_kind"], s["lineage_parent_package_id"]) for s in package["samples"]]
+    assert ("derived", sample_id) in lineages
+    # conflict links between two exported assertions stay
+    conflicts = {a["package_id"]: a["conflicts_with_package_id"] for a in package["assertions"]}
+    assert conflicts.get(second) == first
+
+    # S5/S8: importing the exported package must SUCCEED (self-importable)
+    package["contributor"]["name"] = "A. Contributor"
+    report = import_package(conn, package)
+    assert report.compounds == 1 and report.assertions == 2
+
+
+def test_export_neutralizes_and_excludes_out_of_selection(conn_with_data):
+    """S2/S3/S6-style: lineage parent and compound members OUTSIDE the
+    selection are dropped/excluded — never exported as dangling references."""
+    conn, ref_id = conn_with_data
+    ref2 = add_manual_reference(conn, doi="10.9999/out-source", title="Out")
+    outside = record_sample(conn, source_id=ref2.id, designation="Outside sample")
+    inside = conn.execute(
+        "SELECT id FROM sample_record WHERE source_id = ?", (ref_id,)
+    ).fetchone()["id"]
+    # lineage points OUTSIDE the selection
+    conn.execute(
+        "UPDATE sample_record SET lineage_kind = 'derived', "
+        "derived_from_sample_id = ? WHERE id = ?", (outside.id, inside))
+    # compound with an OUT-of-selection member
+    conn.execute(
+        "INSERT INTO compound (canonical_name, identity_note, created_by) "
+        "VALUES ('Mixed compound', 'n', 'Mohammed (owner)')")
+    conn.execute(
+        "INSERT INTO compound_member (compound_id, member_type, member_id, added_by, "
+        "reason) VALUES ((SELECT MAX(id) FROM compound), 'sample_record', ?, 'o', 'r')",
+        (outside.id,))
+    conn.execute(
+        "INSERT INTO compound_member (compound_id, member_type, member_id, added_by, "
+        "reason) VALUES ((SELECT MAX(id) FROM compound), 'sample_record', ?, 'o', 'r')",
+        (inside,))
+    conn.commit()
+    package = export_package(conn, [ref_id])
+    # the lineage pair is neutralized together (importable)
+    assert package["samples"][0]["lineage_kind"] is None
+    assert package["samples"][0]["lineage_parent_package_id"] is None
+    # the mixed compound is EXCLUDED (a member is outside the selection)
+    assert package["compounds"] == []
+    # and the package self-imports
+    package["contributor"]["name"] = "A. Contributor"
+    report = import_package(conn, package)
+    assert report.samples == 1

@@ -123,9 +123,11 @@ def export_package(conn: sqlite3.Connection, source_ids: list[int]) -> dict:
             "rights_note": row["rights_note"], "container": row["container"],
             "issued_year": row["issued_year"],
         })
+    exported_sample_ids: set[int] = set()
     for row in conn.execute(
         f"SELECT * FROM sample_record WHERE source_id IN ({','.join('?' * len(ids))})", ids
     ):
+        exported_sample_ids.add(row["id"])
         package["samples"].append({
             "package_id": row["id"], "source_package_id": row["source_id"],
             "designation": row["designation"], "basis": row["basis"],
@@ -136,9 +138,9 @@ def export_package(conn: sqlite3.Connection, source_ids: list[int]) -> dict:
             # a lineage parent OUTSIDE the selection is a local fact — the
             # pair is neutralized together so the package stays importable
             "lineage_kind": row["lineage_kind"]
-            if row["derived_from_sample_id"] in ids else None,
+            if row["derived_from_sample_id"] in exported_sample_ids else None,
             "lineage_parent_package_id": row["derived_from_sample_id"]
-            if row["derived_from_sample_id"] in ids else None,
+            if row["derived_from_sample_id"] in exported_sample_ids else None,
         })
     for row in conn.execute(
         f"SELECT * FROM observation WHERE source_id IN ({','.join('?' * len(ids))})", ids
@@ -154,16 +156,18 @@ def export_package(conn: sqlite3.Connection, source_ids: list[int]) -> dict:
             "protocol": row["protocol"],
             "evidence_location": row["evidence_location"],
         })
+    exported_assertion_ids: set[int] = set()
     for row in conn.execute(
         f"SELECT * FROM assertion WHERE source_id IN ({','.join('?' * len(ids))})", ids
     ):
+        exported_assertion_ids.add(row["id"])
         package["assertions"].append({
             "package_id": row["id"], "source_package_id": row["source_id"],
             "claim_type": row["claim_type"], "claim_text": row["claim_text"],
             "evidence_location": row["evidence_location"],
             "epistemic_type": row["epistemic_type"],
             "conflicts_with_package_id": row["conflicts_with"]
-            if row["conflicts_with"] in ids else None,
+            if row["conflicts_with"] in exported_assertion_ids else None,
         })
     # compounds: exported ONLY when every sample member is inside the
     # selection (v1 members are samples; structure members never export —
@@ -174,7 +178,7 @@ def export_package(conn: sqlite3.Connection, source_ids: list[int]) -> dict:
             (row["id"],),
         ).fetchall()
         if not members or any(
-            m["member_type"] != "sample_record" or m["member_id"] not in ids
+            m["member_type"] != "sample_record" or m["member_id"] not in exported_sample_ids
             for m in members
         ):
             continue
