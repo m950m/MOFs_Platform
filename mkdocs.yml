@@ -1,0 +1,69 @@
+site_name: MOFs_Platform
+site_description: >-
+  An evidence-traceable research tool for MOF-related electrochemistry
+  (HER/OER) — every claim keeps its source, every sample keeps its identity.
+site_url: https://m950m.github.io/MOFs_Platform/
+repo_url: https://github.com/m950m/MOFs_Platform
+repo_name: m950m/MOFs_Platform
+copyright: Copyright &copy; Mohammed — Apache-2.0
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.mark
+  - pymdownx.tilde
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Screens:
+      - screens/index.md
+      - screens/home.md
+      - screens/research-question.md
+      - screens/laboratory-profile.md
+      - screens/sources.md
+      - screens/evidence.md
+      - screens/samples-identity.md
+      - screens/candidates.md
+      - screens/review.md
+      - screens/lab-fit.md
+  - Workflows: workflows.md
+  - Evidence packages: evidence-packages.md
+  - How it fits together: internals.md
+  - FAQ: faq.md

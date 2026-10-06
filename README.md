@@ -5,6 +5,11 @@ discover materials with documented experimental preparation, keep each claim's
 source and location, preserve tested-sample identity, and let the researcher —
 not the tool — draw scientific conclusions.
 
+**Documentation site:** [m950m.github.io/MOFs_Platform](https://m950m.github.io/MOFs_Platform/)
+— user-facing docs (getting started, a page per screen, workflows, FAQ),
+built from `docs/` with MkDocs Material (`pip install -e ".[docs]"`) and
+deployed to GitHub Pages automatically on merge to `main`.
+
 **Status:** the evidence engine (#3–#13) AND the owner's vision layer are
 implemented — #14 (consistency hints), #15 (AI question refinement, D10),
 #16 (active search, D9), #18 (compound profiles), #20 (sample corrections),
