@@ -1,0 +1,12 @@
+/* Arabic-aware typography fallback.
+   The site language is English, but Arabic titles, names, and quoted terms
+   appear in research content. After the Latin text font, fall back to Arabic
+   system fonts so Arabic script renders correctly instead of tofu boxes. */
+.md-typeset,
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+  font-family: "Roboto", "Noto Naskh Arabic", "Noto Sans Arabic",
+    "Geeza Pro", "Amiri", "Segoe UI", sans-serif;
+}
