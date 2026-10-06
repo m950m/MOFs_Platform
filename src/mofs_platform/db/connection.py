@@ -21,17 +21,31 @@ def apply_migrations(conn: sqlite3.Connection) -> None:
     for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
         if path.name in applied:
             continue
-        # Atomic per migration: executescript commits implicitly, so a crash
-        # mid-rebuild (after DROP, before RENAME) previously destroyed tables.
-        # Wrapping the script + the bookkeeping insert in one explicit
-        # transaction makes every migration all-or-nothing (strict audit).
+        # Atomic + FK-safe per migration (two strict-audit fixes):
+        # 1. executescript commits implicitly — the script + bookkeeping run
+        #    inside one explicit BEGIN IMMEDIATE..COMMIT so a crash mid-rebuild
+        #    is all-or-nothing.
+        # 2. PRAGMA foreign_keys cannot change inside a transaction, so it is
+        #    turned OFF around the script (a parent-table rebuild with DROP
+        #    must not CASCADE-delete child tables) and ON after; a
+        #    foreign_key_check then runs and raises LOUDLY on any orphan.
         script = (
             "BEGIN IMMEDIATE;\n"
             + path.read_text(encoding="utf-8")
             + f"\nINSERT INTO schema_migrations (filename) VALUES ('{path.name}');\n"
             + "COMMIT;"
         )
+        conn.execute("PRAGMA foreign_keys = OFF")
         conn.executescript(script)
+        orphans = conn.execute("PRAGMA foreign_key_check").fetchall()
+        conn.execute("PRAGMA foreign_keys = ON")
+        if orphans:
+            tables = ", ".join(f"{r[0]}(row {r[1]})" for r in orphans[:5])
+            raise sqlite3.IntegrityError(
+                f"Migration {path.name} left orphaned rows ({tables}) — restore "
+                "from backup before continuing; the migration is applied but "
+                "the store is inconsistent."
+            )
 
 
 def connect(db_path: str | Path) -> sqlite3.Connection:

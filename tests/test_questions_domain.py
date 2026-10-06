@@ -42,6 +42,7 @@ def test_migrations_are_idempotent(db_path):
         "0016_number_streams.sql",
         "0017_number_corrections.sql",
         "0018_conflict_resolved.sql",
+        "0019_package_route.sql",
     ]
     second.close()
 
@@ -207,3 +208,61 @@ def test_failed_migration_rolls_back_completely(tmp_path, monkeypatch):
         "SELECT COUNT(*) FROM schema_migrations WHERE filename = '0003_bad.sql'"
     ).fetchone()[0] == 0  # bookkeeping rolled back — retry is clean
     check.close()
+
+
+def test_migration_0019_parent_rebuild_preserves_children(db_path):
+    """Gate-critical probe (issue #19): 0019 rebuilds `source`, a PARENT of
+    sample_record/observation/assertion/source_capture_event (ON DELETE
+    CASCADE) — the FK-off runner must keep every child row alive, and the
+    new entry_method vocabulary must work."""
+    import sqlite3
+
+    from mofs_platform.db.connection import MIGRATIONS_DIR, connect
+
+    # build a PRE-0019 database via the real runner (0013 era semantics for
+    # search tables are irrelevant here; assert on the four child tables)
+    raw = sqlite3.connect(str(db_path))
+    raw.row_factory = sqlite3.Row
+    raw.execute(
+        "CREATE TABLE IF NOT EXISTS schema_migrations ("
+        "filename TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+    )
+    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        if path.name >= "0019":
+            continue
+        raw.executescript(path.read_text(encoding="utf-8"))
+        raw.execute(
+            "INSERT INTO schema_migrations (filename) VALUES (?)", (path.name,)
+        )
+    raw.execute("INSERT INTO question (wording) VALUES ('Probe question')")
+    raw.execute(
+        "INSERT INTO source (question_id, doi, entry_method, title) "
+        "VALUES (1, '10.9999/parent', 'manual', 'Parent paper')"
+    )
+    source_id = raw.execute("SELECT MAX(id) FROM source").fetchone()[0]
+    raw.execute(
+        "INSERT INTO sample_record (source_id, designation, basis) "
+        "VALUES (?, 'Child sample', 'experimental')", (source_id,))
+    child_samples = raw.execute("SELECT COUNT(*) FROM sample_record").fetchone()[0]
+    child_obs = raw.execute("SELECT COUNT(*) FROM observation").fetchone()[0]
+    child_events = raw.execute("SELECT COUNT(*) FROM source_capture_event").fetchone()[0]
+    raw.commit()
+    raw.close()
+
+    # apply 0019 through the REAL connect() runner (FK-safe path)
+    conn = connect(db_path)
+    samples_after = conn.execute("SELECT COUNT(*) FROM sample_record").fetchone()[0]
+    obs_after = conn.execute("SELECT COUNT(*) FROM observation").fetchone()[0]
+    events_after = conn.execute(
+        "SELECT COUNT(*) FROM source_capture_event").fetchone()[0]
+    assert (samples_after, obs_after, events_after) == (
+        child_samples, child_obs, child_events), "CASCADE deleted children!"
+    conn.execute(
+        "INSERT INTO source (question_id, doi, entry_method, title) "
+        "VALUES (1, '10.9999/pkg', 'package', 'Imported via package')")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO source (question_id, doi, entry_method) "
+            "VALUES (1, '10.9999/x', 'carrier_pigeon')")
+    orphans = conn.execute("PRAGMA foreign_key_check").fetchall()
+    assert orphans == []
