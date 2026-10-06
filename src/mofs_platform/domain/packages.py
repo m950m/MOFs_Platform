@@ -123,11 +123,18 @@ def export_package(conn: sqlite3.Connection, source_ids: list[int]) -> dict:
             "rights_note": row["rights_note"], "container": row["container"],
             "issued_year": row["issued_year"],
         })
-    exported_sample_ids: set[int] = set()
+    # Precomputed BEFORE the loop: a lineage parent with a higher id than
+    # its child must still count as exported (order-independence, gate
+    # round-3 LOW finding)
+    exported_sample_ids = {
+        r["id"] for r in conn.execute(
+            f"SELECT id FROM sample_record WHERE source_id IN ({','.join('?' * len(ids))})",
+            ids,
+        )
+    }
     for row in conn.execute(
         f"SELECT * FROM sample_record WHERE source_id IN ({','.join('?' * len(ids))})", ids
     ):
-        exported_sample_ids.add(row["id"])
         package["samples"].append({
             "package_id": row["id"], "source_package_id": row["source_id"],
             "designation": row["designation"], "basis": row["basis"],

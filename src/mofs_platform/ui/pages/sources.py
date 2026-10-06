@@ -547,7 +547,7 @@ def _render_packages_section(conn) -> None:
             raw = Path(st.session_state.get("pkg_import_path") or "").read_text(
                 encoding="utf-8"
             )
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             st.error(f"Could not read the package file. ({exc})")
         else:
             try:
@@ -569,5 +569,3 @@ def _render_packages_section(conn) -> None:
                 st.error(str(exc))
             except json.JSONDecodeError as exc:
                 st.error(f"The file is not valid JSON. ({exc})")
-            except UnicodeDecodeError as exc:
-                st.error(f"The file is not valid UTF-8 text. ({exc})")

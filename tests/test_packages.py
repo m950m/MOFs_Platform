@@ -330,3 +330,21 @@ def test_export_neutralizes_and_excludes_out_of_selection(conn_with_data):
     package["contributor"]["name"] = "A. Contributor"
     report = import_package(conn, package)
     assert report.samples == 1
+
+
+def test_export_lineage_parent_with_higher_id_survives(conn_with_data):
+    """Gate round-3 LOW: a lineage parent iterated AFTER its child (higher
+    id) must still be recognized as exported — the id set is precomputed."""
+    conn, ref_id = conn_with_data
+    child = conn.execute(
+        "SELECT id FROM sample_record WHERE source_id = ?", (ref_id,)
+    ).fetchone()["id"]
+    # the parent is created AFTER the child → higher id
+    parent = record_sample(conn, source_id=ref_id, designation="Parent sample")
+    conn.execute(
+        "UPDATE sample_record SET lineage_kind = 'derived', "
+        "derived_from_sample_id = ? WHERE id = ?", (parent.id, child))
+    conn.commit()
+    package = export_package(conn, [ref_id])
+    lineages = [(s["lineage_kind"], s["lineage_parent_package_id"]) for s in package["samples"]]
+    assert ("derived", parent.id) in lineages
