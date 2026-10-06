@@ -25,7 +25,7 @@ navigate away — only an explicit save persists.
   changed by them.
 - **Mechanical observations** — labeled `tool inference`: vague terms from a
   documented list, empty refinement fields. Review suggestions only.
-- **Optional AI refinement** (Z.ai GLM, decision D10): enable per session,
+- **Optional AI refinement** (Z.ai GLM): enable per session,
   paste a key (session-only, never stored), request suggestions. Only the
   question's own saved fields are sent anywhere. Applying a suggestion
   prefills the form — *you* still press Save. Failure kinds are typed and

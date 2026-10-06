@@ -13,7 +13,7 @@ always with history.
 - **Reviews** — marking an assertion or relation `reviewed` requires:
     - the reviewer's name,
     - the **exact supporting source location** you personally inspected,
-    - the reason it meets the review threshold (decision D4).
+    - the reason it meets the review threshold.
 - **Conflict resolution** — for assertions marked `conflicted`: the resolver's
   name and a required reason (e.g. double entry, or one side was corrected).
 

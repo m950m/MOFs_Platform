@@ -43,7 +43,7 @@ Below the candidate cards you can group records into **compounds**:
 
 ## Honest markers
 
-- **Grouping is not equivalence and never merges** (decision D5): same
+- **Grouping is not equivalence and never merges**: same
   composition with a different arrangement or morphology belongs in a
   *separate* compound. Member properties never "climb" between members.
 - Values from different members sit side by side with provenance — never
